@@ -23,13 +23,13 @@ export const extractTenantId = (req: Request, res: Response, next: NextFunction)
 
   // Method 1: Extract from URL parameters
   if (req.params.organizationId) {
-    tenantId = parseInt(req.params.organizationId, 10);
+    tenantId = parseInt(req.params.organizationId as string, 10);
   }
 
   // Method 2: Extract from headers (useful for non-RESTful endpoints)
   if (!tenantId && req.headers['x-organization-id']) {
     const headerValue = req.headers['x-organization-id'];
-    tenantId = parseInt(Array.isArray(headerValue) ? headerValue[0] : headerValue, 10);
+    tenantId = parseInt(Array.isArray(headerValue) ? headerValue[0] : (headerValue as string), 10);
   }
 
   // Method 3: Extract from JWT token (placeholder for future auth implementation)

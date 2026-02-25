@@ -12,10 +12,9 @@ import CustomReportBuilder from './pages/CustomReportBuilder';
 import CrossAssetPayment from './pages/CrossAssetPayment';
 import TransactionHistory from './pages/TransactionHistory';
 
-import AdminPanel from './pages/AdminPanel';
-
 import EmployeePortal from './pages/EmployeePortal';
-
+import Login from './pages/Login';
+import AuthCallback from './pages/AuthCallback';
 import { useTranslation } from 'react-i18next';
 
 function App() {
@@ -154,14 +153,8 @@ function App() {
             </ErrorBoundary>
           }
         />
-        <Route
-          path="/admin"
-          element={
-            <ErrorBoundary fallback={<ErrorFallback onReset={() => {}} />}>
-              <AdminPanel />
-            </ErrorBoundary>
-          }
-        />
+        <Route path="/login" element={<Login />} />
+        <Route path="/auth-callback" element={<AuthCallback />} />
       </Route>
     </Routes>
   );

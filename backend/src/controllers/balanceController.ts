@@ -35,7 +35,7 @@ export class BalanceController {
         return res.status(400).json({ error: 'Missing or invalid assetIssuer query param.' });
       }
 
-      const result = await BalanceService.getOrgUsdBalance(accountId, String(assetIssuer));
+      const result = await BalanceService.getOrgUsdBalance(accountId as string, String(assetIssuer));
 
       res.json({
         account: accountId,
@@ -77,7 +77,7 @@ export class BalanceController {
       });
     } catch (error: any) {
       if (error instanceof z.ZodError) {
-        return res.status(400).json({ error: 'Validation Error', details: error.errors });
+        return res.status(400).json({ error: 'Validation Error', details: error.issues });
       }
       if (error?.response?.status === 404) {
         return res.status(404).json({ error: 'Distribution account not found on Horizon.' });
