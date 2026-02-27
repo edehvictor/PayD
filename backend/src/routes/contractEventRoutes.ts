@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { ContractEventsController } from '../controllers/contractEventsController';
+import { ContractEventsController } from '../controllers/contractEventsController.js';
 
 const router = Router();
 

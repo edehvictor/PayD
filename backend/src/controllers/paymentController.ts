@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { AnchorService } from '../services/anchorService';
+import { AnchorService } from '../services/anchorService.js';
 import { Keypair } from '@stellar/stellar-sdk';
 
 export class PaymentController {
@@ -59,9 +59,9 @@ export class PaymentController {
       const clientKeypair = Keypair.fromSecret(secretKey as string);
       // Re-auth to get a fresh token or use a session-based approach
       // For simplicity in this implementation, we re-auth
-      const token = await AnchorService.authenticate(domain, clientKeypair);
+      const token = await AnchorService.authenticate(domain as string, clientKeypair);
 
-      const status = await AnchorService.getTransaction(domain, token, id);
+      const status = await AnchorService.getTransaction(domain as string, token, id as string);
       res.json(status);
     } catch (error: any) {
       res.status(500).json({ error: error.message });

@@ -1,4 +1,4 @@
-import { query } from '../config/database';
+import { query } from '../config/database.js';
 
 const INDEX_STATE_KEY = 'soroban_contract_events';
 const DEFAULT_START_LEDGER = Number(process.env.SOROBAN_EVENT_START_LEDGER || '0');
