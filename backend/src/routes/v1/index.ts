@@ -24,7 +24,7 @@ import rateLimitRoutes from '../rateLimitRoutes.js';
 import freezeRoutes from '../freezeRoutes.js';
 import contractUpgradeRoutes from '../contractUpgradeRoutes.js';
 import claimRoutes from '../claimRoutes.js';
-import advancedReportRoutes from '../advancedReportRoutes.js';
+import feeRoutes from '../feeRoutes.js';
 
 const router = Router();
 
@@ -47,6 +47,6 @@ router.use('/rate-limit', apiRateLimit(), rateLimitRoutes);
 router.use('/freeze', apiRateLimit(), freezeRoutes);
 router.use('/contracts', apiRateLimit(), contractUpgradeRoutes);
 router.use('/claims', dataRateLimit(), claimRoutes);
-router.use('/reports', dataRateLimit(), advancedReportRoutes);
+router.use('/fees', dataRateLimit(), feeRoutes);
 
 export default router;
