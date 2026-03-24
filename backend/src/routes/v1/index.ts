@@ -19,6 +19,7 @@ import multiSigRoutes from '../multiSigRoutes.js';
 import rateLimitRoutes from '../rateLimitRoutes.js';
 import freezeRoutes from '../freezeRoutes.js';
 import contractUpgradeRoutes from '../contractUpgradeRoutes.js';
+import ratesRoutes from '../ratesRoutes.js';
 
 const router = Router();
 
@@ -40,5 +41,6 @@ router.use('/multisig', apiRateLimit(), multiSigRoutes);
 router.use('/rate-limit', apiRateLimit(), rateLimitRoutes);
 router.use('/freeze', apiRateLimit(), freezeRoutes);
 router.use('/contracts', apiRateLimit(), contractUpgradeRoutes);
+router.use('/rates', dataRateLimit(), ratesRoutes);
 
 export default router;
