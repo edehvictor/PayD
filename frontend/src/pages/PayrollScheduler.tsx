@@ -237,7 +237,10 @@ export default function PayrollScheduler() {
           }),
         });
       } catch {
-        notifyApiError('Webhook trigger failed', 'Payment was created, but webhook test trigger failed.');
+        notifyApiError(
+          'Webhook trigger failed',
+          'Payment was created, but webhook test trigger failed.'
+        );
         console.warn('Webhook test-trigger skipped (Backend might not be running)');
       }
 
