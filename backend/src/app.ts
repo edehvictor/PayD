@@ -27,7 +27,7 @@ import paymentRoutes from './routes/paymentRoutes.js';
 import searchRoutes from './routes/searchRoutes.js';
 import contractRoutes from './routes/contractRoutes.js';
 import ratesRoutes from './routes/ratesRoutes.js';
-import { dataRateLimit } from './middlewares/rateLimitMiddleware.js';
+import contractEventsRoutes from './routes/contractEvents.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -79,6 +79,7 @@ app.use('/api/assets', dataRateLimit(), assetRoutes);
 app.use('/api/payments', apiRateLimit(), paymentRoutes);
 app.use('/api/search', dataRateLimit(), searchRoutes);
 app.use('/api', apiRateLimit(), contractRoutes);
+app.use('/api/events', dataRateLimit(), contractEventsRoutes);
 
 // Health check endpoint
 app.get('/health', HealthController.getHealthStatus);
