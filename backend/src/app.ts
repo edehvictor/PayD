@@ -27,6 +27,7 @@ import paymentRoutes from './routes/paymentRoutes.js';
 import searchRoutes from './routes/searchRoutes.js';
 import contractRoutes from './routes/contractRoutes.js';
 import ratesRoutes from './routes/ratesRoutes.js';
+import stellarThrottlingRoutes from './routes/stellarThrottlingRoutes.js';
 import { dataRateLimit } from './middlewares/rateLimitMiddleware.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -79,6 +80,7 @@ app.use('/api/assets', dataRateLimit(), assetRoutes);
 app.use('/api/payments', apiRateLimit(), paymentRoutes);
 app.use('/api/search', dataRateLimit(), searchRoutes);
 app.use('/api', apiRateLimit(), contractRoutes);
+app.use('/api/stellar-throttling', apiRateLimit(), stellarThrottlingRoutes);
 
 // Health check endpoint
 app.get('/health', HealthController.getHealthStatus);
