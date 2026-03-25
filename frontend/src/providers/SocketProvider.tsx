@@ -9,7 +9,7 @@ const SOCKET_URL = (import.meta.env.VITE_API_URL as string) || 'http://localhost
 export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [socket, setSocket] = useState<Socket | null>(null);
   const [connected, setConnected] = useState(false);
-  const { notifySuccess, notifyError } = useNotification();
+  const { notifySuccess, notifyError, notifyApiError } = useNotification();
 
   useEffect(() => {
     const newSocket = io(SOCKET_URL, {
@@ -35,12 +35,13 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     newSocket.on('connect_error', (err) => {
       console.error('Socket connection error:', err);
       setConnected(false);
+      notifyApiError('Real-time connection failed', err.message || 'Unable to connect to socket.');
     });
 
     return () => {
       newSocket.disconnect();
     };
-  }, [notifySuccess, notifyError]);
+  }, [notifyApiError, notifySuccess, notifyError]);
 
   const subscribeToTransaction = (transactionId: string) => {
     if (socket && connected) {
