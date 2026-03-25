@@ -107,7 +107,7 @@ export const SchedulingWizard = ({
     const dayOfWeek = config.dayOfWeek ?? 1; // default Monday
     const diffDays = (dayOfWeek - now.getDay() + 7) % 7;
 
-    let first = new Date(now);
+    const first = new Date(now);
     first.setDate(now.getDate() + diffDays);
     first.setHours(hours, minutes, 0, 0);
 
