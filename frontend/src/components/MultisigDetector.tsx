@@ -17,7 +17,13 @@ const LABEL_CLASS = 'block text-xs font-bold uppercase tracking-widest text-mute
 // Sub–components
 // ---------------------------------------------------------------------------
 
-function SignerRow({ signer, isMaster }: { signer: MultisigInfo['signers'][number]; isMaster: boolean }) {
+function SignerRow({
+  signer,
+  isMaster,
+}: {
+  signer: MultisigInfo['signers'][number];
+  isMaster: boolean;
+}) {
   return (
     <div className="flex items-center gap-3 rounded-lg border border-hi bg-black/20 px-4 py-3">
       <Key className="h-4 w-4 shrink-0 text-muted" />
@@ -35,7 +41,15 @@ function SignerRow({ signer, isMaster }: { signer: MultisigInfo['signers'][numbe
   );
 }
 
-function ThresholdBar({ label, value, totalWeight }: { label: string; value: number; totalWeight: number }) {
+function ThresholdBar({
+  label,
+  value,
+  totalWeight,
+}: {
+  label: string;
+  value: number;
+  totalWeight: number;
+}) {
   const pct = totalWeight > 0 ? Math.min((value / totalWeight) * 100, 100) : 0;
   return (
     <div>
@@ -97,8 +111,7 @@ export default function MultisigDetector() {
       </h2>
       <p className="text-sm text-muted">
         Check whether a Stellar account requires multiple signatures and inspect its signer
-        configuration. This helps you handle partial signing flows before broadcasting
-        transactions.
+        configuration. This helps you handle partial signing flows before broadcasting transactions.
       </p>
 
       {/* Input */}
@@ -158,7 +171,11 @@ export default function MultisigDetector() {
 
       {/* Results */}
       {info && (
-        <div className="flex flex-col gap-5 rounded-2xl border border-hi bg-black/20 p-6" role="region" aria-label="Multisig detection results">
+        <div
+          className="flex flex-col gap-5 rounded-2xl border border-hi bg-black/20 p-6"
+          role="region"
+          aria-label="Multisig detection results"
+        >
           {/* Status badge */}
           <div className="flex items-center gap-3">
             {info.isMultisig ? (
@@ -186,9 +203,21 @@ export default function MultisigDetector() {
               Threshold Configuration
             </h3>
             <div className="grid gap-3">
-              <ThresholdBar label="Low" value={info.thresholds.low} totalWeight={info.totalWeight} />
-              <ThresholdBar label="Medium" value={info.thresholds.med} totalWeight={info.totalWeight} />
-              <ThresholdBar label="High" value={info.thresholds.high} totalWeight={info.totalWeight} />
+              <ThresholdBar
+                label="Low"
+                value={info.thresholds.low}
+                totalWeight={info.totalWeight}
+              />
+              <ThresholdBar
+                label="Medium"
+                value={info.thresholds.med}
+                totalWeight={info.totalWeight}
+              />
+              <ThresholdBar
+                label="High"
+                value={info.thresholds.high}
+                totalWeight={info.totalWeight}
+              />
             </div>
           </div>
 
@@ -232,8 +261,8 @@ export default function MultisigDetector() {
             >
               <strong>Partial Signing Required:</strong> This account needs at least{' '}
               <strong>{info.requiredSignatureCount}</strong> signature(s) to authorize
-              medium-security operations like payments. Submit the transaction XDR to each
-              required signer for approval before broadcasting.
+              medium-security operations like payments. Submit the transaction XDR to each required
+              signer for approval before broadcasting.
             </div>
           )}
         </div>

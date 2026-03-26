@@ -1,8 +1,5 @@
 import { useCallback, useState } from 'react';
-import {
-  detectMultisig,
-  type MultisigInfo,
-} from '../services/multisigDetection';
+import { detectMultisig, type MultisigInfo } from '../services/multisigDetection';
 
 /**
  * Hook for detecting on-chain multisig configuration of a Stellar account.

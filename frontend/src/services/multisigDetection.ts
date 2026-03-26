@@ -100,10 +100,9 @@ export async function detectMultisig(accountId: string): Promise<MultisigDetecti
   const horizonUrl = getHorizonUrl();
 
   try {
-    const response = await fetch(
-      `${horizonUrl}/accounts/${encodeURIComponent(accountId)}`,
-      { headers: { Accept: 'application/json' } },
-    );
+    const response = await fetch(`${horizonUrl}/accounts/${encodeURIComponent(accountId)}`, {
+      headers: { Accept: 'application/json' },
+    });
 
     if (!response.ok) {
       if (response.status === 404) {
@@ -120,7 +119,7 @@ export async function detectMultisig(accountId: string): Promise<MultisigDetecti
       };
     }
 
-    const data: HorizonAccountResponse = await response.json() as HorizonAccountResponse;
+    const data: HorizonAccountResponse = (await response.json()) as HorizonAccountResponse;
 
     const thresholds: MultisigThresholds = {
       low: data.thresholds?.low_threshold ?? 0,
@@ -128,13 +127,11 @@ export async function detectMultisig(accountId: string): Promise<MultisigDetecti
       high: data.thresholds?.high_threshold ?? 0,
     };
 
-    const signers: AccountSigner[] = (data.signers ?? []).map(
-      (s) => ({
-        key: s.key,
-        weight: s.weight,
-        type: s.type as AccountSigner['type'],
-      }),
-    );
+    const signers: AccountSigner[] = (data.signers ?? []).map((s) => ({
+      key: s.key,
+      weight: s.weight,
+      type: s.type as AccountSigner['type'],
+    }));
 
     const masterSigner = signers.find((s) => s.key === accountId);
     const masterWeight = masterSigner?.weight ?? 0;
@@ -183,9 +180,7 @@ export async function detectMultisig(accountId: string): Promise<MultisigDetecti
 function computeMinSignatures(signers: AccountSigner[], threshold: number): number {
   if (threshold === 0) return 0;
 
-  const sorted = [...signers]
-    .filter((s) => s.weight > 0)
-    .sort((a, b) => b.weight - a.weight);
+  const sorted = [...signers].filter((s) => s.weight > 0).sort((a, b) => b.weight - a.weight);
 
   let accumulated = 0;
   let count = 0;
