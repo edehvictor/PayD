@@ -79,24 +79,27 @@ export const EmployeeEntry: React.FC = () => {
   /**
    * Handler: Opens the removal confirmation modal with selected employee
    */
-  const handleRemoveEmployee = useCallback((employeeId: string) => {
-    const employee = employees.find((e) => e.id === employeeId);
-    if (!employee) {
-      notifyError(t('errors.employeeNotFound', 'Employee not found'));
-      return;
-    }
+  const handleRemoveEmployee = useCallback(
+    (employeeId: string) => {
+      const employee = employees.find((e) => e.id === employeeId);
+      if (!employee) {
+        notifyError(t('errors.employeeNotFound', 'Employee not found'));
+        return;
+      }
 
-    setRemovalModal({
-      isOpen: true,
-      employee,
-    });
+      setRemovalModal({
+        isOpen: true,
+        employee,
+      });
 
-    // Track modal open event
-    gtag('event', 'employee_removal_modal_opened', {
-      employee_id: employeeId,
-      employee_name: employee.name,
-    });
-  }, [employees, t, gtag]);
+      // Track modal open event
+      gtag('event', 'employee_removal_modal_opened', {
+        employee_id: employeeId,
+        employee_name: employee.name,
+      });
+    },
+    [employees, t, gtag]
+  );
 
   /**
    * Handler: Confirms employee removal
@@ -186,9 +189,7 @@ export const EmployeeEntry: React.FC = () => {
   const handleUpdateEmployeeImage = useCallback(
     (employeeId: string, imageUrl: string) => {
       setEmployees((prev) =>
-        prev.map((emp) =>
-          emp.id === employeeId ? { ...emp, imageUrl } : emp
-        )
+        prev.map((emp) => (emp.id === employeeId ? { ...emp, imageUrl } : emp))
       );
 
       gtag('event', 'employee_image_updated', {
@@ -233,10 +234,7 @@ export const EmployeeEntry: React.FC = () => {
             {t('pages.employees.title', 'Employee Management')}
           </h1>
           <p className="text-gray-600 mt-2">
-            {t(
-              'pages.employees.subtitle',
-              'Manage your team members and their information'
-            )}
+            {t('pages.employees.subtitle', 'Manage your team members and their information')}
           </p>
         </div>
 

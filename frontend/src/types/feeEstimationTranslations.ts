@@ -17,24 +17,21 @@
 export const FEE_ESTIMATION_CONFIRM_MODAL_KEYS = {
   // Main translations
   'feeEstimation.confirmModal.title': 'Network Fee Estimation',
-  'feeEstimation.confirmModal.subtitle':
-    'Review estimated fees before confirming your bulk payout',
+  'feeEstimation.confirmModal.subtitle': 'Review estimated fees before confirming your bulk payout',
 
   // Payment Summary
   'feeEstimation.confirmModal.paymentSummary': 'Payment Summary',
   'feeEstimation.confirmModal.paymentCount': 'Total Payments',
   'feeEstimation.confirmModal.totalAmount': 'Total Amount',
   'feeEstimation.confirmModal.estimatedTxCount': 'Est. Transactions',
-  'feeEstimation.confirmModal.estimatedTxCountHelp':
-    'Including on-chain processing',
+  'feeEstimation.confirmModal.estimatedTxCountHelp': 'Including on-chain processing',
 
   // Network Status
   'feeEstimation.confirmModal.networkStatus': 'Network Status',
   'feeEstimation.confirmModal.baseFee': 'Base Fee',
   'feeEstimation.confirmModal.recommendedFee': 'Recommended Fee',
   'feeEstimation.confirmModal.safetyMargin': 'Safety Margin',
-  'feeEstimation.confirmModal.safetyMarginHelp':
-    'Applied due to network congestion',
+  'feeEstimation.confirmModal.safetyMarginHelp': 'Applied due to network congestion',
 
   // Estimated Cost
   'feeEstimation.confirmModal.estimatedCost': 'Estimated Cost',
@@ -97,8 +94,7 @@ export const EN_TRANSLATIONS = {
       highCongestion: 'High Network Congestion',
       highCongestionMessage:
         'Network congestion is high. Fees may increase. Consider retrying in a few minutes.',
-      processingTime:
-        'Processing typically takes 5-30 seconds depending on network conditions.',
+      processingTime: 'Processing typically takes 5-30 seconds depending on network conditions.',
       confirm: 'Confirm & Continue',
     },
     congestion: {
@@ -174,8 +170,7 @@ export const FR_TRANSLATIONS = {
   feeEstimation: {
     confirmModal: {
       title: 'Estimation des Frais Réseau',
-      subtitle:
-        'Vérifiez les frais estimés avant de confirmer votre paiement en masse',
+      subtitle: 'Vérifiez les frais estimés avant de confirmer votre paiement en masse',
       paymentSummary: 'Résumé du Paiement',
       paymentCount: 'Total des Paiements',
       totalAmount: 'Montant Total',
@@ -204,8 +199,8 @@ export const FR_TRANSLATIONS = {
       high: 'Élevée',
     },
     error: {
-      title: 'Échec de l\'estimation des frais',
-      message: 'Impossible d\'obtenir les frais réseau actuels',
+      title: "Échec de l'estimation des frais",
+      message: "Impossible d'obtenir les frais réseau actuels",
     },
   },
   common: {

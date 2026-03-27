@@ -39,7 +39,10 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({
   const [showEditModal, setShowEditModal] = useState<{ open: boolean; employee?: Employee }>({
     open: false,
   });
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState<{ open: boolean; employee?: Employee }>({
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<{
+    open: boolean;
+    employee?: Employee;
+  }>({
     open: false,
   });
   const [showAvatarModal, setShowAvatarModal] = useState<{

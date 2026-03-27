@@ -233,7 +233,10 @@ export default function BulkPayrollUpload() {
               </p>
               {validRows.length > 0 && (
                 <p className="text-gray-600">
-                  Total: <span className="font-semibold">{totalAmount} {primaryCurrency}</span>
+                  Total:{' '}
+                  <span className="font-semibold">
+                    {totalAmount} {primaryCurrency}
+                  </span>
                 </p>
               )}
             </div>
@@ -265,7 +268,10 @@ export default function BulkPayrollUpload() {
                 </h3>
                 <div className="space-y-2 max-h-60 overflow-y-auto">
                   {invalidRows.map((row) => (
-                    <div key={row.rowNumber} className="text-sm text-gray-600 p-2 bg-red-50 rounded">
+                    <div
+                      key={row.rowNumber}
+                      className="text-sm text-gray-600 p-2 bg-red-50 rounded"
+                    >
                       Row {row.rowNumber}: {row.errors?.join(', ') || 'Unknown error'}
                     </div>
                   ))}
@@ -282,7 +288,9 @@ export default function BulkPayrollUpload() {
         paymentCount={validRows.length}
         totalAmount={totalAmount.toFixed(2)}
         currency={primaryCurrency}
-        onConfirm={() => { void handleConfirmFees(); }}
+        onConfirm={() => {
+          void handleConfirmFees();
+        }}
         onCancel={handleCancelFees}
         confirmLabel={isSubmitting ? 'Submitting...' : 'Confirm & Pay'}
         cancelLabel="Back to Upload"

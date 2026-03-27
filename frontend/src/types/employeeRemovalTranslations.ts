@@ -84,7 +84,7 @@ export const FR_TRANSLATIONS = {
     subtitle: 'Êtes-vous sûr de vouloir supprimer cet employé ?',
     employeeToRemove: 'Employé à supprimer :',
     warning:
-      'Cette action ne peut pas être annulée. Tous les enregistrements d\'employés et les données associées seront supprimés.',
+      "Cette action ne peut pas être annulée. Tous les enregistrements d'employés et les données associées seront supprimés.",
     warningTitle: 'Action Permanente',
     confirmation: 'Confirmez en cliquant sur Supprimer ci-dessous.',
     confirmRemove: 'Confirmer la suppression de {name}',

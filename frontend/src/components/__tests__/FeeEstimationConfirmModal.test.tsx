@@ -90,10 +90,7 @@ describe('FeeEstimationConfirmModal', () => {
   });
 
   it('should not render when isOpen is false', () => {
-    render(
-      <FeeEstimationConfirmModal {...defaultProps} isOpen={false} />,
-      { wrapper: Wrapper }
-    );
+    render(<FeeEstimationConfirmModal {...defaultProps} isOpen={false} />, { wrapper: Wrapper });
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
@@ -359,10 +356,7 @@ describe('FeeEstimationConfirmModal', () => {
       estimateBatch: vi.fn(),
     });
 
-    render(
-      <FeeEstimationConfirmModal {...defaultProps} />,
-      { wrapper: Wrapper }
-    );
+    render(<FeeEstimationConfirmModal {...defaultProps} />, { wrapper: Wrapper });
 
     expect(screen.queryByText(/safety margin/i)).not.toBeInTheDocument();
   });
@@ -372,24 +366,16 @@ describe('FeeEstimationConfirmModal', () => {
   // ─────────────────────────────────────────────────────────────────────────
 
   it('should use custom confirm label', () => {
-    render(
-      <FeeEstimationConfirmModal
-        {...defaultProps}
-        confirmLabel="Pay Now"
-      />,
-      { wrapper: Wrapper }
-    );
+    render(<FeeEstimationConfirmModal {...defaultProps} confirmLabel="Pay Now" />, {
+      wrapper: Wrapper,
+    });
     expect(screen.getByRole('button', /pay now/i)).toBeInTheDocument();
   });
 
   it('should use custom cancel label', () => {
-    render(
-      <FeeEstimationConfirmModal
-        {...defaultProps}
-        cancelLabel="Go Back"
-      />,
-      { wrapper: Wrapper }
-    );
+    render(<FeeEstimationConfirmModal {...defaultProps} cancelLabel="Go Back" />, {
+      wrapper: Wrapper,
+    });
     expect(screen.getByRole('button', /go back/i)).toBeInTheDocument();
   });
 
@@ -398,10 +384,9 @@ describe('FeeEstimationConfirmModal', () => {
   // ─────────────────────────────────────────────────────────────────────────
 
   it('should be responsive on mobile viewports', () => {
-    const { container } = render(
-      <FeeEstimationConfirmModal {...defaultProps} />,
-      { wrapper: Wrapper }
-    );
+    const { container } = render(<FeeEstimationConfirmModal {...defaultProps} />, {
+      wrapper: Wrapper,
+    });
 
     const modal = container.querySelector('[role="dialog"]');
     expect(modal).toHaveClass('modal');
@@ -413,18 +398,14 @@ describe('FeeEstimationConfirmModal', () => {
   // ─────────────────────────────────────────────────────────────────────────
 
   it('should handle zero payment count gracefully', () => {
-    render(
-      <FeeEstimationConfirmModal {...defaultProps} paymentCount={0} />,
-      { wrapper: Wrapper }
-    );
+    render(<FeeEstimationConfirmModal {...defaultProps} paymentCount={0} />, { wrapper: Wrapper });
     expect(screen.getByText('0')).toBeInTheDocument();
   });
 
   it('should handle very large payment counts', () => {
-    render(
-      <FeeEstimationConfirmModal {...defaultProps} paymentCount={10000} />,
-      { wrapper: Wrapper }
-    );
+    render(<FeeEstimationConfirmModal {...defaultProps} paymentCount={10000} />, {
+      wrapper: Wrapper,
+    });
     // 10000 * 1.5 = 15000
     expect(screen.getByText('15000')).toBeInTheDocument();
   });

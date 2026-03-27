@@ -96,7 +96,9 @@ describe('EmployeeRemovalConfirmModal', () => {
       renderWithI18n(<EmployeeRemovalConfirmModal {...defaultProps} />);
       // The description div should exist (it wraps the warning content)
       const dialog = screen.getByRole('dialog');
-      const descElement = within(dialog).getByText(/permanent action/i).closest('div');
+      const descElement = within(dialog)
+        .getByText(/permanent action/i)
+        .closest('div');
       expect(descElement?.parentElement).toHaveAttribute('id', 'employee-removal-description');
     });
 
@@ -135,15 +137,11 @@ describe('EmployeeRemovalConfirmModal', () => {
     });
 
     it('supports focus restoration after close', () => {
-      const { rerender } = renderWithI18n(
-        <EmployeeRemovalConfirmModal {...defaultProps} />
-      );
+      const { rerender } = renderWithI18n(<EmployeeRemovalConfirmModal {...defaultProps} />);
       const dialog = screen.getByRole('dialog');
       expect(dialog).toBeInTheDocument();
 
-      rerender(
-        <EmployeeRemovalConfirmModal {...defaultProps} isOpen={false} />
-      );
+      rerender(<EmployeeRemovalConfirmModal {...defaultProps} isOpen={false} />);
       expect(() => screen.getByRole('dialog')).toThrow();
     });
   });
@@ -178,9 +176,7 @@ describe('EmployeeRemovalConfirmModal', () => {
     });
 
     it('calls onCancel when backdrop clicked', () => {
-      const { container } = render(
-        <EmployeeRemovalConfirmModal {...defaultProps} />
-      );
+      const { container } = render(<EmployeeRemovalConfirmModal {...defaultProps} />);
       const backdrop = container.querySelector('[role="presentation"]');
       if (backdrop) {
         fireEvent.click(backdrop);
@@ -189,9 +185,7 @@ describe('EmployeeRemovalConfirmModal', () => {
     });
 
     it('does not close when clicking inside modal', () => {
-      render(
-        <EmployeeRemovalConfirmModal {...defaultProps} />
-      );
+      render(<EmployeeRemovalConfirmModal {...defaultProps} />);
       const dialog = screen.getByRole('dialog');
       fireEvent.click(dialog);
       expect(defaultProps.onCancel).not.toHaveBeenCalled();
@@ -265,33 +259,25 @@ describe('EmployeeRemovalConfirmModal', () => {
 
   describe('Loading State', () => {
     it('shows loading spinner when isLoading is true', () => {
-      renderWithI18n(
-        <EmployeeRemovalConfirmModal {...defaultProps} isLoading={true} />
-      );
+      renderWithI18n(<EmployeeRemovalConfirmModal {...defaultProps} isLoading={true} />);
       const removeBtn = screen.getByText(/remove/i);
       // Button should have spinner
       expect(removeBtn.querySelector('[class*="spinner"]')).toBeInTheDocument();
     });
 
     it('disables buttons when isLoading is true', () => {
-      renderWithI18n(
-        <EmployeeRemovalConfirmModal {...defaultProps} isLoading={true} />
-      );
+      renderWithI18n(<EmployeeRemovalConfirmModal {...defaultProps} isLoading={true} />);
       expect(screen.getByText(/remove/i)).toBeDisabled();
       expect(screen.getByText(/cancel/i)).toBeDisabled();
     });
 
     it('disables close button when isLoading is true', () => {
-      renderWithI18n(
-        <EmployeeRemovalConfirmModal {...defaultProps} isLoading={true} />
-      );
+      renderWithI18n(<EmployeeRemovalConfirmModal {...defaultProps} isLoading={true} />);
       expect(screen.getByLabelText(/close/i)).toBeDisabled();
     });
 
     it('enables buttons when isLoading is false', () => {
-      renderWithI18n(
-        <EmployeeRemovalConfirmModal {...defaultProps} isLoading={false} />
-      );
+      renderWithI18n(<EmployeeRemovalConfirmModal {...defaultProps} isLoading={false} />);
       expect(screen.getByText(/remove/i)).not.toBeDisabled();
       expect(screen.getByText(/cancel/i)).not.toBeDisabled();
     });
@@ -304,54 +290,33 @@ describe('EmployeeRemovalConfirmModal', () => {
   describe('Custom Props', () => {
     it('uses custom confirmLabel when provided', () => {
       renderWithI18n(
-        <EmployeeRemovalConfirmModal
-          {...defaultProps}
-          confirmLabel="Delete Permanently"
-        />
+        <EmployeeRemovalConfirmModal {...defaultProps} confirmLabel="Delete Permanently" />
       );
       expect(screen.getByText('Delete Permanently')).toBeInTheDocument();
     });
 
     it('uses custom cancelLabel when provided', () => {
-      renderWithI18n(
-        <EmployeeRemovalConfirmModal
-          {...defaultProps}
-          cancelLabel="Keep Employee"
-        />
-      );
+      renderWithI18n(<EmployeeRemovalConfirmModal {...defaultProps} cancelLabel="Keep Employee" />);
       expect(screen.getByText('Keep Employee')).toBeInTheDocument();
     });
 
     it('applies custom className to backdrop', () => {
       const { container } = render(
-        <EmployeeRemovalConfirmModal
-          {...defaultProps}
-          className="custom-backdrop"
-        />
+        <EmployeeRemovalConfirmModal {...defaultProps} className="custom-backdrop" />
       );
       const backdrop = container.querySelector('.custom-backdrop');
       expect(backdrop).toBeInTheDocument();
     });
 
     it('handles different employee names', () => {
-      renderWithI18n(
-        <EmployeeRemovalConfirmModal
-          {...defaultProps}
-          employeeName="Jane Smith"
-        />
-      );
+      renderWithI18n(<EmployeeRemovalConfirmModal {...defaultProps} employeeName="Jane Smith" />);
       expect(screen.getByText('Jane Smith')).toBeInTheDocument();
     });
 
     it('passes correct employeeId to onConfirm callback', async () => {
       const customId = 'emp-custom-456';
       const user = userEvent.setup();
-      renderWithI18n(
-        <EmployeeRemovalConfirmModal
-          {...defaultProps}
-          employeeId={customId}
-        />
-      );
+      renderWithI18n(<EmployeeRemovalConfirmModal {...defaultProps} employeeId={customId} />);
       await user.click(screen.getByText(/remove/i));
       expect(defaultProps.onConfirm).toHaveBeenCalledWith(customId);
     });
@@ -364,35 +329,24 @@ describe('EmployeeRemovalConfirmModal', () => {
   describe('Edge Cases', () => {
     it('handles very long employee names', () => {
       const longName = 'A'.repeat(100);
-      renderWithI18n(
-        <EmployeeRemovalConfirmModal {...defaultProps} employeeName={longName} />
-      );
+      renderWithI18n(<EmployeeRemovalConfirmModal {...defaultProps} employeeName={longName} />);
       expect(screen.getByText(longName)).toBeInTheDocument();
     });
 
     it('handles special characters in employee name', () => {
       const specialName = 'José García-López';
-      renderWithI18n(
-        <EmployeeRemovalConfirmModal
-          {...defaultProps}
-          employeeName={specialName}
-        />
-      );
+      renderWithI18n(<EmployeeRemovalConfirmModal {...defaultProps} employeeName={specialName} />);
       expect(screen.getByText(specialName)).toBeInTheDocument();
     });
 
     it('handles empty string employee name gracefully', () => {
-      renderWithI18n(
-        <EmployeeRemovalConfirmModal {...defaultProps} employeeName="" />
-      );
+      renderWithI18n(<EmployeeRemovalConfirmModal {...defaultProps} employeeName="" />);
       const dialog = screen.getByRole('dialog');
       expect(dialog).toBeInTheDocument();
     });
 
     it('handles rapid open/close cycles', () => {
-      const { rerender } = renderWithI18n(
-        <EmployeeRemovalConfirmModal {...defaultProps} />
-      );
+      const { rerender } = renderWithI18n(<EmployeeRemovalConfirmModal {...defaultProps} />);
       rerender(<EmployeeRemovalConfirmModal {...defaultProps} isOpen={false} />);
       rerender(<EmployeeRemovalConfirmModal {...defaultProps} isOpen={true} />);
       rerender(<EmployeeRemovalConfirmModal {...defaultProps} isOpen={false} />);
@@ -403,7 +357,7 @@ describe('EmployeeRemovalConfirmModal', () => {
       const user = userEvent.setup();
       renderWithI18n(<EmployeeRemovalConfirmModal {...defaultProps} />);
       const removeBtn = screen.getByText(/remove/i);
-      
+
       // Click multiple times rapidly
       await user.click(removeBtn);
       expect(defaultProps.onConfirm).toHaveBeenCalledTimes(1);
@@ -416,26 +370,20 @@ describe('EmployeeRemovalConfirmModal', () => {
 
   describe('Responsive Design', () => {
     it('applies responsive CSS classes', () => {
-      const { container } = render(
-        <EmployeeRemovalConfirmModal {...defaultProps} />
-      );
+      const { container } = render(<EmployeeRemovalConfirmModal {...defaultProps} />);
       const modal = container.querySelector('.modal');
       expect(modal).toHaveClass('modal');
     });
 
     it('has mobile-optimized padding', () => {
-      const { container } = render(
-        <EmployeeRemovalConfirmModal {...defaultProps} />
-      );
+      const { container } = render(<EmployeeRemovalConfirmModal {...defaultProps} />);
       const content = container.querySelector('.content');
       // CSS Module applies responsive padding
       expect(content).toBeInTheDocument();
     });
 
     it('renders buttons in proper layout', () => {
-      const { container } = render(
-        <EmployeeRemovalConfirmModal {...defaultProps} />
-      );
+      const { container } = render(<EmployeeRemovalConfirmModal {...defaultProps} />);
       const actions = container.querySelector('.actions');
       expect(actions).toBeInTheDocument();
       const buttons = actions?.querySelectorAll('button');
@@ -474,10 +422,7 @@ describe('EmployeeRemovalConfirmModal', () => {
       const user = userEvent.setup();
       const mockOnCancel = vi.fn();
       const { rerender } = renderWithI18n(
-        <EmployeeRemovalConfirmModal
-          {...defaultProps}
-          onCancel={mockOnCancel}
-        />
+        <EmployeeRemovalConfirmModal {...defaultProps} onCancel={mockOnCancel} />
       );
 
       // Cancel
@@ -486,20 +431,12 @@ describe('EmployeeRemovalConfirmModal', () => {
 
       // Close modal
       rerender(
-        <EmployeeRemovalConfirmModal
-          {...defaultProps}
-          isOpen={false}
-          onCancel={mockOnCancel}
-        />
+        <EmployeeRemovalConfirmModal {...defaultProps} isOpen={false} onCancel={mockOnCancel} />
       );
 
       // Reopen
       rerender(
-        <EmployeeRemovalConfirmModal
-          {...defaultProps}
-          isOpen={true}
-          onCancel={mockOnCancel}
-        />
+        <EmployeeRemovalConfirmModal {...defaultProps} isOpen={true} onCancel={mockOnCancel} />
       );
 
       expect(screen.getByRole('dialog')).toBeInTheDocument();
@@ -514,15 +451,11 @@ describe('EmployeeRemovalConfirmModal', () => {
       expect(removeBtn).not.toBeDisabled();
 
       // Simulate loading
-      rerender(
-        <EmployeeRemovalConfirmModal {...defaultProps} isLoading={true} />
-      );
+      rerender(<EmployeeRemovalConfirmModal {...defaultProps} isLoading={true} />);
       expect(removeBtn).toBeDisabled();
 
       // Simulate completion
-      rerender(
-        <EmployeeRemovalConfirmModal {...defaultProps} isLoading={false} />
-      );
+      rerender(<EmployeeRemovalConfirmModal {...defaultProps} isLoading={false} />);
       expect(removeBtn).not.toBeDisabled();
     });
   });

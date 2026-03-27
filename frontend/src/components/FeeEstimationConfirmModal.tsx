@@ -80,9 +80,12 @@ const FeeErrorState: React.FC<FeeErrorStateProps> = ({ error, onRetry }) => {
         <AlertTriangle size={24} />
       </div>
       <div className={styles.errorContent}>
-        <h3 className={styles.errorTitle}>{t('feeEstimation.error.title', 'Failed to estimate fees')}</h3>
+        <h3 className={styles.errorTitle}>
+          {t('feeEstimation.error.title', 'Failed to estimate fees')}
+        </h3>
         <p className={styles.errorMessage}>
-          {error?.message || t('feeEstimation.error.message', 'Unable to fetch current network fees')}
+          {error?.message ||
+            t('feeEstimation.error.message', 'Unable to fetch current network fees')}
         </p>
         <Button variant="secondary" onClick={onRetry} size="sm" className={styles.retryButton}>
           {t('common.retry', 'Retry')}
@@ -102,7 +105,7 @@ interface CongestionBadgeProps {
 
 const CongestionBadge: React.FC<CongestionBadgeProps> = ({ level, usage }) => {
   const { t } = useTranslation();
-  
+
   const labelMap: Record<string, string> = {
     low: t('feeEstimation.congestion.low', 'Low'),
     moderate: t('feeEstimation.congestion.moderate', 'Moderate'),
@@ -224,10 +227,13 @@ export const FeeEstimationConfirmModal: React.FC<FeeEstimationConfirmModalProps>
     if (!feeRecommendation) return null;
 
     const feePerTx = feeRecommendation.recommendedFee;
-    const safetyMargin = feeRecommendation.congestionLevel === 'high' ? 1.5
-                        : feeRecommendation.congestionLevel === 'moderate' ? 1.2
-                        : 1.0;
-    
+    const safetyMargin =
+      feeRecommendation.congestionLevel === 'high'
+        ? 1.5
+        : feeRecommendation.congestionLevel === 'moderate'
+          ? 1.2
+          : 1.0;
+
     const totalBudget = estimatedTransactionCount * feePerTx * safetyMargin;
 
     return {
@@ -271,12 +277,7 @@ export const FeeEstimationConfirmModal: React.FC<FeeEstimationConfirmModalProps>
   return (
     <>
       {/* Backdrop overlay */}
-      <div
-        className={styles.backdrop}
-        onClick={onCancel}
-        role="presentation"
-        aria-hidden="true"
-      />
+      <div className={styles.backdrop} onClick={onCancel} role="presentation" aria-hidden="true" />
 
       {/* Modal dialog */}
       <div
@@ -341,7 +342,12 @@ export const FeeEstimationConfirmModal: React.FC<FeeEstimationConfirmModalProps>
           {isLoading ? (
             <FeeLoadingSkeleton />
           ) : isError || !feeRecommendation ? (
-            <FeeErrorState error={error} onRetry={() => { void refetch(); }} />
+            <FeeErrorState
+              error={error}
+              onRetry={() => {
+                void refetch();
+              }}
+            />
           ) : (
             <>
               <div className={styles.statusCard}>
@@ -362,7 +368,7 @@ export const FeeEstimationConfirmModal: React.FC<FeeEstimationConfirmModalProps>
                     value={`${stroopsToXLM(feeRecommendation.baseFee)} XLM`}
                     subtext={`${feeRecommendation.baseFee} stroops`}
                   />
-                  
+
                   <FeeRow
                     icon={<TrendingUp size={16} />}
                     label={t('feeEstimation.confirmModal.recommendedFee', 'Recommended Fee')}
@@ -400,15 +406,13 @@ export const FeeEstimationConfirmModal: React.FC<FeeEstimationConfirmModalProps>
                       <Info size={16} className={styles.infoIcon} />
                     </InfoTooltip>
                   </div>
-                  
+
                   <div className={styles.estimateAmount}>
                     <p className={styles.estimateLabel}>
                       {t('feeEstimation.confirmModal.totalFee', 'Total Fee')}
                     </p>
                     <p className={styles.estimateValue}>{batchEstimate.totalBudgetXLM} XLM</p>
-                    <p className={styles.estimateSubtext}>
-                      ({batchEstimate.totalBudget} stroops)
-                    </p>
+                    <p className={styles.estimateSubtext}>({batchEstimate.totalBudget} stroops)</p>
                   </div>
 
                   <div className={styles.estimateFine}>
@@ -474,7 +478,9 @@ export const FeeEstimationConfirmModal: React.FC<FeeEstimationConfirmModalProps>
             size="lg"
             disabled={isLoading || isError}
             className={styles.buttonPrimary}
-            aria-label={confirmLabel || t('feeEstimation.confirmModal.confirm', 'Confirm & Continue')}
+            aria-label={
+              confirmLabel || t('feeEstimation.confirmModal.confirm', 'Confirm & Continue')
+            }
           >
             {confirmLabel || t('feeEstimation.confirmModal.confirm', 'Confirm & Continue')}
           </Button>

@@ -191,7 +191,9 @@ export const EmployeeRemovalConfirmModal: React.FC<EmployeeRemovalConfirmModalPr
 
           {/* Employee Name Highlight */}
           <div className={styles.employeeSection}>
-            <p className={styles.label}>{t('employeeRemoval.employeeToRemove', 'Employee to be removed:')}</p>
+            <p className={styles.label}>
+              {t('employeeRemoval.employeeToRemove', 'Employee to be removed:')}
+            </p>
             <p className={styles.employeeName}>{employeeName}</p>
           </div>
 
