@@ -136,8 +136,9 @@ export default function BulkPayrollUpload() {
         });
       }
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Unknown error occurred';
-      notifyError('Submission failed', message);
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      const msg = typeof errorMsg === 'string' ? errorMsg : 'Unknown error occurred';
+      notifyError('Submission failed', msg);
       console.error('Batch submission error:', error);
       // Modal stays open, user can retry
     } finally {

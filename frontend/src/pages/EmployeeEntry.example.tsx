@@ -142,24 +142,20 @@ export const EmployeeEntry: React.FC = () => {
           employee_name: employee.name,
           timestamp: new Date().toISOString(),
         });
-      } catch (error: unknown) {
-        console.error('Failed to remove employee:', error);
-
-        setIsRemoving(false);
-
-        // Show error notification
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      } catch (error) {
+        const employeeError = error as Record<string, unknown>;
+        const msg = (employeeError?.message as string) || 'Unknown error';
         const notifyErrorFn = notifyError as (message: string) => void;
         notifyErrorFn(
           t('errors.employeeRemovalFailed', 'Failed to remove employee: {error}', {
-            error: errorMessage,
+            error: msg,
           })
         );
 
         // Track removal failure
         gtag('event', 'employee_removal_failed', {
           employee_id: employeeId,
-          error: errorMessage,
+          error: msg,
         });
       }
     },

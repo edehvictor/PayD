@@ -188,15 +188,16 @@ describe('EmployeeRemovalConfirmModal', () => {
       expect(defaultProps.onCancel).toHaveBeenCalled();
     });
 
-    it('does not close when clicking inside modal', async () => {
-      const user = userEvent.setup();
-      renderWithI18n(<EmployeeRemovalConfirmModal {...defaultProps} />);
+    it('does not close when clicking inside modal', () => {
+      const { container } = render(
+        <EmployeeRemovalConfirmModal {...defaultProps} />
+      );
       const dialog = screen.getByRole('dialog');
-      await user.click(dialog);
+      fireEvent.click(dialog);
       expect(defaultProps.onCancel).not.toHaveBeenCalled();
     });
 
-    it('closes on Escape key', async () => {
+    it('closes on Escape key', () => {
       renderWithI18n(<EmployeeRemovalConfirmModal {...defaultProps} />);
       fireEvent.keyDown(document, { key: 'Escape' });
       expect(defaultProps.onCancel).toHaveBeenCalled();

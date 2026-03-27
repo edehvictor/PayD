@@ -341,7 +341,7 @@ export const FeeEstimationConfirmModal: React.FC<FeeEstimationConfirmModalProps>
           {isLoading ? (
             <FeeLoadingSkeleton />
           ) : isError || !feeRecommendation ? (
-            <FeeErrorState error={error} onRetry={() => refetch()} />
+            <FeeErrorState error={error} onRetry={() => { void refetch(); }} />
           ) : (
             <>
               <div className={styles.statusCard}>

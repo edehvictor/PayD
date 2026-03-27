@@ -58,7 +58,7 @@ export function useAutosave<T>(key: string, data: T, delay: number = 1000) {
   const clearSavedData = useCallback(() => {
     window.localStorage.removeItem(key);
     setLastSaved(null);
-  }, [key]);
+  }, []);
 
   return { saving, lastSaved, loadSavedData, clearSavedData };
 }

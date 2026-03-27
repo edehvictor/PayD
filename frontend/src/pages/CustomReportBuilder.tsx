@@ -61,7 +61,9 @@ const MOCK_DATA = [
 ];
 
 const CustomReportBuilder = () => {
-  const [selectedColumns, setSelectedColumns] = useState<string[]>(() => ALL_COLUMNS.map((c) => c.id));
+  const [selectedColumns, setSelectedColumns] = useState<string[]>(() =>
+    ALL_COLUMNS.map((c) => c.id)
+  );
   const [startDate, setStartDate] = useState<string>('2026-02-01');
   const [endDate, setEndDate] = useState<string>('2026-02-28');
 
