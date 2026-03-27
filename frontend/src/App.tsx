@@ -15,7 +15,7 @@ import TransactionHistory from './pages/TransactionHistory';
 import RevenueSplitDashboard from './pages/RevenueSplitDashboard';
 import BulkPayrollUpload from './pages/BulkPayrollUpload';
 import PayrollAnalytics from './pages/PayrollAnalytics';
-
+import ContributorRewards from './pages/ContributorRewards';
 import EmployeePortal from './pages/EmployeePortal';
 import Login from './pages/Login';
 import AuthCallback from './pages/AuthCallback';
@@ -136,7 +136,7 @@ function App() {
         <Route
           path="/settings"
           element={
-            <ErrorBoundary fallback={<ErrorFallback onReset={() => {}} />}>
+            <ErrorBoundary fallback={<ErrorFallback onReset={() => { }} />}>
               <Settings />
             </ErrorBoundary>
           }
@@ -144,7 +144,7 @@ function App() {
         <Route
           path="/help"
           element={
-            <ErrorBoundary fallback={<ErrorFallback onReset={() => {}} />}>
+            <ErrorBoundary fallback={<ErrorFallback onReset={() => { }} />}>
               <HelpCenter />
             </ErrorBoundary>
           }
@@ -152,7 +152,7 @@ function App() {
         <Route
           path="/cross-asset-payment"
           element={
-            <ErrorBoundary fallback={<ErrorFallback onReset={() => {}} />}>
+            <ErrorBoundary fallback={<ErrorFallback onReset={() => { }} />}>
               <CrossAssetPayment />
             </ErrorBoundary>
           }
@@ -160,7 +160,7 @@ function App() {
         <Route
           path="/transactions"
           element={
-            <ErrorBoundary fallback={<ErrorFallback onReset={() => {}} />}>
+            <ErrorBoundary fallback={<ErrorFallback onReset={() => { }} />}>
               <TransactionHistory />
             </ErrorBoundary>
           }
@@ -168,7 +168,7 @@ function App() {
         <Route
           path="/revenue-split"
           element={
-            <ErrorBoundary fallback={<ErrorFallback onReset={() => {}} />}>
+            <ErrorBoundary fallback={<ErrorFallback onReset={() => { }} />}>
               <RevenueSplitDashboard />
             </ErrorBoundary>
           }
@@ -186,6 +186,14 @@ function App() {
           element={
             <ErrorBoundary fallback={<ErrorFallback />}>
               <BulkPayrollUpload />
+            </ErrorBoundary>
+          }
+        />
+        <Route
+          path="/rewards"
+          element={
+            <ErrorBoundary fallback={<ErrorFallback />}>
+              <ContributorRewards />
             </ErrorBoundary>
           }
         />
