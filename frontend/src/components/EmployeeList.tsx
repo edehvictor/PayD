@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Avatar } from './Avatar';
 import { AvatarUpload } from './AvatarUpload';
 import { CSVUploader } from './CSVUploader';
 import type { CSVRow } from './CSVUploader';
-import { Pencil, Trash2 } from 'lucide-react';
+import { Pencil, Trash2, Search, X } from 'lucide-react';
 import { EmployeeRemovalConfirmModal } from './EmployeeRemovalConfirmModal';
 
 interface Employee {
@@ -51,6 +51,12 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({
   }>({ open: false });
   const [sortKey, setSortKey] = useState<keyof Employee>('name');
   const [sortAsc, setSortAsc] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    searchInputRef.current?.focus();
+  }, []);
 
   const handleDataParsed = (data: CSVRow[]) => {
     const newEmployees = data.map((row) => ({
@@ -82,7 +88,18 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({
     }
   };
 
-  const sortedEmployees = [...employees].sort((a, b) => {
+  const filteredEmployees = [...employees].filter((emp) => {
+    if (!searchQuery) return true;
+    const query = searchQuery.toLowerCase();
+    return (
+      emp.name?.toLowerCase().includes(query) ||
+      emp.email?.toLowerCase().includes(query) ||
+      emp.position?.toLowerCase().includes(query) ||
+      emp.wallet?.toLowerCase().includes(query)
+    );
+  });
+
+  const sortedEmployees = [...filteredEmployees].sort((a, b) => {
     const valA = a[sortKey] ?? '';
     const valB = b[sortKey] ?? '';
     if (typeof valA === 'number' && typeof valB === 'number') {
@@ -151,6 +168,25 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({
     <div className="w-full card glass noise overflow-hidden p-0">
       <div className="flex justify-between items-center p-6">
         <span className="font-bold text-lg">Employees</span>
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
+          <input
+            ref={searchInputRef}
+            type="text"
+            placeholder="Search employees..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9 pr-8 py-2 text-sm bg-surface border border-hi rounded-lg outline-none focus:border-accent w-64"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted hover:text-text"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
       </div>
       <table className="w-full text-left border-collapse">
         <thead>
@@ -192,7 +228,7 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({
           {sortedEmployees.length === 0 ? (
             <tr>
               <td colSpan={6} className="p-6 text-center text-gray-500">
-                No employees found
+                {searchQuery ? 'No employees match your search' : 'No employees found'}
               </td>
             </tr>
           ) : (

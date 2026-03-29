@@ -428,6 +428,29 @@ function FragmentRow({
               <p className="text-sm text-muted">Loading recipient statuses...</p>
             ) : (
               <div className="space-y-3">
+                {run.status === 'Pending' || run.status === 'Processing' ? (
+                  <div className="mb-4">
+                    <div className="flex justify-between text-xs text-muted mb-1">
+                      <span>Processing on-chain...</span>
+                      <span>
+                        {Math.round(
+                          ((onChainState?.successCount ?? 0) / summary.items.length) * 100
+                        )}
+                        %
+                      </span>
+                    </div>
+                    <div className="w-full h-2 bg-surface-hi rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-accent transition-all duration-500 ease-out"
+                        style={{
+                          width: `${Math.round(
+                            ((onChainState?.successCount ?? 0) / summary.items.length) * 100
+                          )}%`,
+                        }}
+                      />
+                    </div>
+                  </div>
+                ) : null}
                 <div className="flex flex-wrap items-center gap-4 rounded-md border border-hi/30 px-3 py-2 text-xs text-muted">
                   <span>Recipients: {summary.items.length}</span>
                   <span>Confirmed on-chain: {onChainState?.successCount ?? 0}</span>
