@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useDebounce } from '../hooks/useDebounce';
 import { Avatar } from './Avatar';
 import { AvatarUpload } from './AvatarUpload';
 import { CSVUploader } from './CSVUploader';
@@ -53,6 +54,7 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({
   const [sortAsc, setSortAsc] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const debouncedSearch = useDebounce(searchQuery, 300);
 
   useEffect(() => {
     searchInputRef.current?.focus();
@@ -88,16 +90,17 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({
     }
   };
 
-  const filteredEmployees = [...employees].filter((emp) => {
-    if (!searchQuery) return true;
-    const query = searchQuery.toLowerCase();
-    return (
-      emp.name?.toLowerCase().includes(query) ||
-      emp.email?.toLowerCase().includes(query) ||
-      emp.position?.toLowerCase().includes(query) ||
-      emp.wallet?.toLowerCase().includes(query)
-    );
-  });
+  const filteredEmployees = debouncedSearch
+    ? employees.filter((emp) => {
+        const q = debouncedSearch.toLowerCase();
+        return (
+          emp.name.toLowerCase().includes(q) ||
+          emp.email.toLowerCase().includes(q) ||
+          emp.position.toLowerCase().includes(q) ||
+          emp.wallet?.toLowerCase().includes(q)
+        );
+      })
+    : employees;
 
   const sortedEmployees = [...filteredEmployees].sort((a, b) => {
     const valA = a[sortKey] ?? '';
@@ -166,7 +169,7 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({
 
   return (
     <div className="w-full card glass noise overflow-hidden p-0">
-      <div className="flex justify-between items-center p-6">
+      <div className="flex flex-wrap justify-between items-center gap-3 p-6">
         <span className="font-bold text-lg">Employees</span>
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
@@ -188,29 +191,29 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({
           )}
         </div>
       </div>
-      <table className="w-full text-left border-collapse">
+      <table className="w-full table-fixed text-left border-collapse">
         <thead>
           <tr className="border-b border-hi">
             <th
-              className="p-6 text-xs font-bold uppercase tracking-widest text-muted cursor-pointer"
+              className="w-[28%] p-6 text-xs font-bold uppercase tracking-widest text-muted cursor-pointer"
               onClick={() => handleSort('name')}
             >
               Name {sortKey === 'name' && (sortAsc ? '▲' : '▼')}
             </th>
             <th
-              className="p-6 text-xs font-bold uppercase tracking-widest text-muted cursor-pointer"
+              className="w-[18%] p-6 text-xs font-bold uppercase tracking-widest text-muted cursor-pointer"
               onClick={() => handleSort('position')}
             >
               Role {sortKey === 'position' && (sortAsc ? '▲' : '▼')}
             </th>
             <th
-              className="p-6 text-xs font-bold uppercase tracking-widest text-muted cursor-pointer"
+              className="w-[16%] p-6 text-xs font-bold uppercase tracking-widest text-muted cursor-pointer"
               onClick={() => handleSort('wallet')}
             >
               Wallet {sortKey === 'wallet' && (sortAsc ? '▲' : '▼')}
             </th>
             <th
-              className="p-6 text-xs font-bold uppercase tracking-widest text-muted cursor-pointer"
+              className="w-[14%] p-6 text-xs font-bold uppercase tracking-widest text-muted cursor-pointer"
               onClick={() => handleSort('salary')}
             >
               Salary {sortKey === 'salary' && (sortAsc ? '▲' : '▼')}
@@ -228,7 +231,7 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({
           {sortedEmployees.length === 0 ? (
             <tr>
               <td colSpan={6} className="p-6 text-center text-gray-500">
-                {searchQuery ? 'No employees match your search' : 'No employees found'}
+                {debouncedSearch ? `No employees match "${debouncedSearch}"` : 'No employees found'}
               </td>
             </tr>
           ) : (
@@ -242,11 +245,24 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({
                       imageUrl={employee.imageUrl}
                       size="sm"
                     />
-                    <div className="flex flex-col">
-                      <span className="text-xs text-muted">{employee.name}</span>
+                    <div className="min-w-0 flex flex-col">
+                      <span
+                        className="truncate text-xs text-muted"
+                        title={employee.name}
+                        aria-label={`Employee name: ${employee.name}`}
+                      >
+                        {employee.name}
+                      </span>
+                      <span
+                        className="truncate text-[11px] text-muted/80"
+                        title={employee.email}
+                        aria-label={`Employee email: ${employee.email}`}
+                      >
+                        {employee.email}
+                      </span>
                       <button
                         type="button"
-                        className="text-[10px] text-blue-500 hover:underline text-left"
+                        className="w-fit text-[10px] text-blue-500 hover:underline text-left"
                         onClick={() => setShowAvatarModal({ open: true, employee })}
                       >
                         Update photo
@@ -254,8 +270,10 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({
                     </div>
                   </div>
                 </td>
-                <td className="p-6 text-sm font-medium">{employee.position}</td>
-                <td className="p-6 font-mono text-xs text-muted">
+                <td className="p-6 truncate text-sm font-medium" title={employee.position}>
+                  {employee.position}
+                </td>
+                <td className="p-6 truncate font-mono text-xs text-muted" title={employee.wallet}>
                   {shortenWallet(employee.wallet || '')}
                 </td>
                 <td className="p-6">

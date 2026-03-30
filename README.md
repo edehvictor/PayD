@@ -61,6 +61,28 @@ PayD utilizes Stellar's asset issuance capabilities to create organization-speci
 
 ---
 
+## 🚀 Quick Start
+
+1. **Clone and enter the repo**
+   ```bash
+   git clone https://github.com/Gildado/PayD.git
+   cd PayD
+   ```
+
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
+
+3. **Create your local environment and start the app**
+   ```bash
+   cd backend
+   cp .env.example .env
+   docker-compose up
+   ```
+
+For detailed setup instructions, see [CONTRIBUTING.md](CONTRIBUTING.md).
+
 ## 📚 Contribution Reward (Bounty) Program
 
 We value community contributions! High‑priority issues may carry a bounty to recognize and reward contributors.
@@ -150,24 +172,24 @@ Every payment includes:
 
 ## 🚀 Quick Start
 
-Start PayD locally in three steps:
+Get PayD running locally in three steps:
 
-1. **Clone and enter the repo**
-   ```bash
-   git clone https://github.com/Gildado/PayD.git
-   cd PayD
-   ```
-2. **Install dependencies**
-   ```bash
-   npm install
-   ```
-3. **Create your local environment and start the app**
-   ```bash
-   cp .env.example .env
-   npm run dev
-   ```
+```bash
+# 1. Clone the repository
+git clone https://github.com/Gildado/PayD.git
+cd PayD
 
-Need the full setup? Keep reading for prerequisites, environment variables, and database setup.
+# 2. Install dependencies
+npm install
+
+# 3. Configure environment and start the dev server
+cp .env.example .env
+npm run dev
+```
+
+> **That's it!** The app will be available at `http://localhost:5173`.
+
+Need the full setup (prerequisites, environment variables, database, smart contracts)? Keep reading below.
 
 For cloud hosting instructions, see the deployment guide:
 
@@ -270,11 +292,16 @@ If you want to build, deploy, and seed the local Soroban contracts in one pass,
 use the bootstrap helper:
 
 ```bash
-python3 scripts/local_contract_bootstrap.py --dry-run
+npm run contracts:bootstrap:dry-run
 ```
 
 The script lives in [docs/LOCAL_CONTRACT_BOOTSTRAP.md](docs/LOCAL_CONTRACT_BOOTSTRAP.md)
-and can be run with `--contract` flags to limit the scope.
+and can be run with `--contract` flags to limit the scope. When you are ready to
+execute against the local network instead of previewing the plan, use:
+
+```bash
+npm run contracts:bootstrap -- --contract bulk_payment,cross_asset_payment
+```
 
 ## 🙌 Contributors
 
