@@ -51,7 +51,7 @@ interface AnalyticsData {
 }
 
 // recharts v3 Formatter receives ValueType | undefined
-type RechartsValue = number | string | (number | string)[] | undefined;
+type RechartsValue = number | string | readonly (number | string)[] | undefined;
 
 // ── Mock fetch (replace with real API call when endpoint is available) ────────
 
