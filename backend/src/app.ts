@@ -1,19 +1,20 @@
 import express from 'express';
 import cors from 'cors';
-import morgan from 'morgan';
 import helmet from 'helmet';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import fs from 'fs';
 import config from './config/index.js';
 import { config as envConfig } from './config/env.js';
 import logger from './utils/logger.js';
 import passport from './config/passport.js';
 import { apiVersionMiddleware } from './middlewares/apiVersionMiddleware.js';
-import { REQUEST_ID_HEADER, requestIdMiddleware } from './middlewares/requestIdMiddleware.js';
+import { requestIdMiddleware } from './middlewares/requestIdMiddleware.js';
 import { apiRateLimit, dataRateLimit } from './middlewares/rateLimitMiddleware.js';
 import swaggerUi from 'swagger-ui-express';
 import { swaggerSpec } from './config/swaggerConfig.js';
-import fs from 'fs';
+import { requestLogger, errorLogger } from './middleware/requestLogger.js';
+import metricsRoutes from './routes/metricsRoutes.js';
 
 // Feature Routes
 import v1Routes from './routes/v1/index.js';
@@ -22,7 +23,7 @@ import webhookRoutes from './routes/webhook.routes.js';
 import notificationRoutes from './routes/notificationRoutes.js';
 import { HealthController } from './controllers/healthController.js';
 
-// Upstream Routes
+// Legacy Routes
 import payrollAuditRoutes from './routes/payrollAuditRoutes.js';
 import payrollRoutes from './routes/payroll.routes.js';
 import employeeRoutes from './routes/employeeRoutes.js';
@@ -37,10 +38,6 @@ const __appFilename = fileURLToPath(import.meta.url);
 const __appDirname = path.dirname(__appFilename);
 
 // ── CORS allowlist ────────────────────────────────────────────────────────────
-// Build the set of permitted origins from env vars:
-//   CORS_ORIGIN              – primary origin (default: http://localhost:5173)
-//   CORS_ALLOWED_ORIGINS     – comma-separated list of additional origins
-//                              e.g. "https://app.payd.io,https://staging.payd.io"
 const buildAllowedOrigins = (): Set<string> => {
   const origins = new Set<string>();
   if (envConfig.CORS_ORIGIN) {
@@ -56,12 +53,6 @@ const allowedOrigins = buildAllowedOrigins();
 
 const corsOptions = {
   origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
-    if (allowedOrigins.size === 0) {
-      logger.error('CORS is misconfigured: no allowed origins were provided');
-      return callback(new Error('CORS: no allowed origins configured'));
-    }
-
-    // Allow server-to-server requests (no Origin header) only in non-production.
     if (!origin) {
       if (envConfig.NODE_ENV !== 'production') return callback(null, true);
       return callback(new Error('CORS: server-to-server requests not allowed in production'));
@@ -79,30 +70,26 @@ const corsOptions = {
 
 const app = express();
 
-// Middleware
+// ─── Core Middleware ──────────────────────────────────────────────────────────
 app.use(helmet());
 app.use(cors(corsOptions));
+// requestIdMiddleware must come before requestLogger so the ID is available in logs
 app.use(requestIdMiddleware);
-app.use(
-  morgan((tokens, req, res) => {
-    const requestId = req.requestId ?? '-';
-    return [
-      tokens.method(req, res),
-      tokens.url(req, res),
-      tokens.status(req, res),
-      tokens.res(req, res, 'content-length') || '-',
-      '-',
-      `${tokens['response-time'](req, res)} ms`,
-      `${REQUEST_ID_HEADER}=${requestId}`,
-    ].join(' ');
-  })
-);
+// Structured JSON request logging + Prometheus metrics (replaces morgan)
+app.use(requestLogger);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(passport.initialize());
 
+// ─── Observability Endpoints ──────────────────────────────────────────────────
+
+// Prometheus metrics — scraped by Prometheus every 15 s
+app.use('/metrics', metricsRoutes);
+
+// ─── Static / Spec ────────────────────────────────────────────────────────────
+
 // Serve stellar.toml for SEP-0001
-app.get('/.well-known/stellar.toml', (req, res) => {
+app.get('/.well-known/stellar.toml', (_req, res) => {
   res.setHeader('Content-Type', 'text/plain');
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.sendFile(path.join(__appDirname, '../.well-known/stellar.toml'));
@@ -110,19 +97,17 @@ app.get('/.well-known/stellar.toml', (req, res) => {
 
 // Swagger UI
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
-app.get('/api/openapi.json', (req, res) => {
+app.get('/api/openapi.json', (_req, res) => {
   res.json(swaggerSpec);
 });
 
 // Export openapi.json for frontend
 fs.writeFileSync(path.join(__appDirname, '../openapi.json'), JSON.stringify(swaggerSpec, null, 2));
 
-// Middleware for versioning
+// ─── API Versioning ───────────────────────────────────────────────────────────
 app.use(apiVersionMiddleware);
 
-// ---------------------------------------------------------------------------
 // Versioned API — canonical entry point
-// ---------------------------------------------------------------------------
 app.use('/api/v1', apiRateLimit(), v1Routes);
 
 // API root — discovery endpoint
@@ -135,10 +120,7 @@ app.get('/api', (_req, res) => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// Legacy routes (deprecated — sunset 2027-01-01)
-// Deprecation headers are injected automatically by apiVersionMiddleware.
-// ---------------------------------------------------------------------------
+// ─── Legacy Routes (deprecated — sunset 2027-01-01) ──────────────────────────
 app.use('/rates', dataRateLimit(), ratesRoutes);
 app.use('/auth', authRoutes);
 app.use('/webhooks', apiRateLimit(), webhookRoutes);
@@ -157,7 +139,7 @@ app.use('/api/stellar-throttling', apiRateLimit(), stellarThrottlingRoutes);
 app.get('/api/health', HealthController.getHealthStatus);
 app.get('/health', HealthController.getHealthStatus);
 
-// 404 handler
+// ─── 404 ─────────────────────────────────────────────────────────────────────
 app.use((req, res) => {
   res.status(404).json({
     error: 'Not Found',
@@ -165,8 +147,11 @@ app.use((req, res) => {
   });
 });
 
-// Error handler
-app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+// ─── Error Handling ───────────────────────────────────────────────────────────
+// errorLogger increments Prometheus counters and logs with full context
+app.use(errorLogger);
+
+app.use((err: Error, req: express.Request, res: express.Response, _next: express.NextFunction) => {
   logger.error('Unhandled error', err);
   res.status(500).json({
     error: 'Internal Server Error',
