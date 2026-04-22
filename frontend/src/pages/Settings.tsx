@@ -24,10 +24,14 @@ export default function Settings() {
           <select
             value={i18n.language}
             onChange={handleChangeLanguage}
-            className="w-full bg-black/20 border border-hi rounded-xl p-4 text-text outline-none focus:border-accent/50 focus:bg-accent/5 transition-all"
+            className="w-full bg-surface border border-hi rounded-xl p-4 text-text outline-none focus:border-accent/50 focus:bg-accent/5 transition-all appearance-none"
           >
-            <option value="en">{t('settings.languageEnglish')}</option>
-            <option value="es">{t('settings.languageSpanish')}</option>
+            <option value="en" className="bg-surface text-text">
+              {t('settings.languageEnglish')}
+            </option>
+            <option value="es" className="bg-surface text-text">
+              {t('settings.languageSpanish')}
+            </option>
           </select>
         </div>
       </div>

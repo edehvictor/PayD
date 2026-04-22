@@ -207,15 +207,40 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({
     <div className="w-full card glass noise overflow-hidden p-0">
       <div className="flex flex-wrap justify-between items-center gap-3 p-6">
         <span className="font-bold text-lg">Employees</span>
-        <input
-          type="search"
-          id="employee-search"
-          aria-label="Search employees"
-          placeholder="Search by name, email, or role…"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="rounded border border-gray-300 bg-transparent px-3 py-1.5 text-sm placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-accent"
-        />
+        <div className="relative flex items-center">
+          <input
+            type="search"
+            id="employee-search"
+            aria-label="Search employees"
+            placeholder="Search by name, email, or role…"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            autoFocus
+            className="rounded border border-gray-300 bg-transparent px-3 py-1.5 text-sm placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-accent w-64"
+          />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery('')}
+              className="absolute right-2 text-muted hover:text-text"
+              aria-label="Clear search"
+            >
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+          )}
+        </div>
       </div>
       <table className="w-full table-fixed text-left border-collapse">
         <thead>
@@ -255,9 +280,7 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({
         </thead>
         <tbody className="divide-y divide-gray-200">
           {isLoading ? (
-            Array.from({ length: SKELETON_ROW_COUNT }, (_, i) => (
-              <EmployeeSkeletonRow key={i} />
-            ))
+            Array.from({ length: SKELETON_ROW_COUNT }, (_, i) => <EmployeeSkeletonRow key={i} />)
           ) : sortedEmployees.length === 0 ? (
             <tr>
               <td colSpan={6} className="p-6 text-center text-gray-500">
@@ -266,10 +289,7 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({
             </tr>
           ) : (
             sortedEmployees.map((employee) => (
-              <tr
-                key={employee.id}
-                className="cursor-pointer transition-colors hover:bg-white/5"
-              >
+              <tr key={employee.id} className="cursor-pointer transition-colors hover:bg-white/5">
                 <td className="p-6">
                   <div className="flex items-center gap-3">
                     <Avatar
@@ -449,10 +469,14 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({
               onChange={(e) =>
                 setNewEmployee({ ...newEmployee, status: e.target.value as 'Active' | 'Inactive' })
               }
-              className="w-full mb-4 px-3 py-2 border rounded"
+              className="w-full mb-4 px-3 py-2 border border-hi rounded bg-surface text-text appearance-none"
             >
-              <option value="Active">Active</option>
-              <option value="Inactive">Inactive</option>
+              <option value="Active" className="bg-surface text-text">
+                Active
+              </option>
+              <option value="Inactive" className="bg-surface text-text">
+                Inactive
+              </option>
             </select>
             <div className="flex justify-end gap-2">
               <button
