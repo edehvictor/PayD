@@ -45,7 +45,10 @@ const loginRateLimit = authRateLimit({
 router.post('/register', authRateLimit(), (req, res, next) => {
   const result = RegisterSchema.safeParse(req.body);
   if (!result.success) {
-    return res.status(400).json({ error: 'Validation failed', details: result.error.flatten() });
+    return res.status(400).json({ 
+      error: 'Validation failed', 
+      details: result.error.flatten() 
+    });
   }
   req.body = result.data;
   next();
@@ -54,7 +57,10 @@ router.post('/register', authRateLimit(), (req, res, next) => {
 router.post('/login', loginRateLimit, (req, res, next) => {
   const result = LoginSchema.safeParse(req.body);
   if (!result.success) {
-    return res.status(400).json({ error: 'Validation failed', details: result.error.flatten() });
+    return res.status(400).json({ 
+      error: 'Validation failed', 
+      details: result.error.flatten() 
+    });
   }
   req.body = result.data;
   next();
@@ -63,7 +69,10 @@ router.post('/login', loginRateLimit, (req, res, next) => {
 router.post('/refresh', authRateLimit(), (req, res, next) => {
   const result = RefreshSchema.safeParse(req.body);
   if (!result.success) {
-    return res.status(400).json({ error: 'Validation failed', details: result.error.flatten() });
+    return res.status(400).json({ 
+      error: 'Validation failed', 
+      details: result.error.flatten() 
+    });
   }
   req.body = result.data;
   next();

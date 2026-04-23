@@ -15,6 +15,8 @@ export const TransactionQuerySchema = z.object({
   endDate: z.string().optional(),
 });
 
+export type TransactionQueryParams = z.infer<typeof TransactionQuerySchema>;
+
 /**
  * @swagger
  * tags:
@@ -71,17 +73,29 @@ router.get(
  *           minimum: 1
  *           maximum: 100
  *           default: 20
+ *         description: Number of results to return
  *       - in: query
  *         name: offset
  *         schema:
  *           type: integer
  *           minimum: 0
  *           default: 0
+ *         description: Number of results to skip
  *       - in: query
  *         name: status
  *         schema:
  *           type: string
  *           enum: [pending, completed, failed, cancelled]
+ *       - in: query
+ *         name: startDate
+ *         schema:
+ *           type: string
+ *         description: Filter by start date (ISO 8601)
+ *       - in: query
+ *         name: endDate
+ *         schema:
+ *           type: string
+ *         description: Filter by end date (ISO 8601)
  *     responses:
  *       200:
  *         description: Success
@@ -92,6 +106,7 @@ router.get(
  *               properties:
  *                 data:
  *                   type: array
+ *                   items: {}
  *                 pagination:
  *                   type: object
  *                   properties:
@@ -101,6 +116,8 @@ router.get(
  *                       type: integer
  *                     offset:
  *                       type: integer
+ *                     hasMore:
+ *                       type: boolean
  */
 router.get(
   '/organizations/:organizationId/transactions',
