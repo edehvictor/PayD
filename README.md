@@ -1,7 +1,8 @@
 # PayD: Stellar-Based Cross-Border Payroll Platform!
 
-[![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Stellar](https://img.shields.io/badge/Powered%20by-Stellar-7B68EE)](https://www.stellar.org/)
+[![Build Status](https://github.com/Gildado/PayD/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/Gildado/PayD/actions/workflows/build.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
+[![Stellar Compatible](https://img.shields.io/badge/Stellar-Compatible-08B5E5?style=flat-square&logo=stellar)](https://www.stellar.org/)
 
 ## License
 
@@ -60,6 +61,36 @@ PayD utilizes Stellar's asset issuance capabilities to create organization-speci
 - **Issuer Account**: Controlled by the organiza
 
 ---
+
+## 🚀 Quick Start
+
+1. **Clone and enter the repo**
+   ```bash
+   git clone https://github.com/Gildado/PayD.git
+   cd PayD
+   ```
+
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
+
+3. **Create your local environment and start the app**
+   ```bash
+   cd backend
+   cp .env.example .env
+   docker-compose up
+   ```
+
+
+For detailed setup instructions, see [CONTRIBUTING.md](CONTRIBUTING.md).
+
+### Windows / WSL2 Setup
+For Windows users, we strongly recommend using WSL2 (Windows Subsystem for Linux).
+1. Install WSL2 by opening an Administrator PowerShell prompt and running `wsl --install`.
+2. Install Docker Desktop and enable the WSL2 backend in its settings.
+3. Open your WSL2 terminal (e.g. Ubuntu) and clone the repository there.
+4. Run all `npm` and `docker-compose` commands inside the WSL2 terminal to avoid permission and path length issues.
 
 ## 📚 Contribution Reward (Bounty) Program
 
@@ -150,24 +181,24 @@ Every payment includes:
 
 ## 🚀 Quick Start
 
-Start PayD locally in three steps:
+Get PayD running locally in three steps:
 
-1. **Clone and enter the repo**
-   ```bash
-   git clone https://github.com/Gildado/PayD.git
-   cd PayD
-   ```
-2. **Install dependencies**
-   ```bash
-   npm install
-   ```
-3. **Create your local environment and start the app**
-   ```bash
-   cp .env.example .env
-   npm run dev
-   ```
+```bash
+# 1. Clone the repository
+git clone https://github.com/Gildado/PayD.git
+cd PayD
 
-Need the full setup? Keep reading for prerequisites, environment variables, and database setup.
+# 2. Install dependencies
+npm install
+
+# 3. Configure environment and start the dev server
+cp .env.example .env
+npm run dev
+```
+
+> **That's it!** The app will be available at `http://localhost:5173`.
+
+Need the full setup (prerequisites, environment variables, database, smart contracts)? Keep reading below.
 
 For cloud hosting instructions, see the deployment guide:
 
@@ -235,8 +266,11 @@ STELLAR_SECRET_KEY=your_issuer_secret_key
 ANCHOR_API_KEY=your_anchor_service_key
 
 # JWT
-JWT_SECRET=your_jwt_secret
+JWT_SECRET=<generate-a-random-32+-char-secret>
+JWT_REFRESH_SECRET=<generate-a-different-random-32+-char-secret>
 ```
+
+Rotate the JWT secrets in your platform environment whenever credentials are exposed or on your normal key-rotation schedule, then restart/redeploy the backend.
 
 ### Development
 
@@ -270,11 +304,16 @@ If you want to build, deploy, and seed the local Soroban contracts in one pass,
 use the bootstrap helper:
 
 ```bash
-python3 scripts/local_contract_bootstrap.py --dry-run
+npm run contracts:bootstrap:dry-run
 ```
 
 The script lives in [docs/LOCAL_CONTRACT_BOOTSTRAP.md](docs/LOCAL_CONTRACT_BOOTSTRAP.md)
-and can be run with `--contract` flags to limit the scope.
+and can be run with `--contract` flags to limit the scope. When you are ready to
+execute against the local network instead of previewing the plan, use:
+
+```bash
+npm run contracts:bootstrap -- --contract bulk_payment,cross_asset_payment
+```
 
 ## 🙌 Contributors
 

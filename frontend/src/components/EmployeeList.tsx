@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
+import { useDebounce } from '../hooks/useDebounce';
 import { Avatar } from './Avatar';
 import { AvatarUpload } from './AvatarUpload';
 import { CSVUploader } from './CSVUploader';
 import type { CSVRow } from './CSVUploader';
-import { Pencil, Trash2 } from 'lucide-react';
+import { Pencil, Trash2, Copy } from 'lucide-react';
+import { Icon } from '@stellar/design-system';
 import { EmployeeRemovalConfirmModal } from './EmployeeRemovalConfirmModal';
 
 interface Employee {
@@ -19,6 +21,7 @@ interface Employee {
 
 interface EmployeeListProps {
   employees: Employee[];
+  isLoading?: boolean;
   onEmployeeClick?: (employee: Employee) => void;
   onAddEmployee: (employee: Employee) => void;
   onEditEmployee?: (employee: Employee) => void;
@@ -26,8 +29,49 @@ interface EmployeeListProps {
   onUpdateEmployeeImage?: (id: string, imageUrl: string) => void;
 }
 
+const SKELETON_ROW_COUNT = 5;
+
+const EmployeeSkeletonRow: React.FC = () => (
+  <tr className="animate-pulse border-b border-gray-200/20">
+    {/* Name column */}
+    <td className="p-6">
+      <div className="flex items-center gap-3">
+        <div className="w-8 h-8 rounded-full bg-gray-300/30 shrink-0" />
+        <div className="flex flex-col gap-1.5 flex-1 min-w-0">
+          <div className="h-2.5 rounded bg-gray-300/30 w-3/4" />
+          <div className="h-2 rounded bg-gray-300/20 w-1/2" />
+        </div>
+      </div>
+    </td>
+    {/* Role */}
+    <td className="p-6">
+      <div className="h-2.5 rounded bg-gray-300/30 w-2/3" />
+    </td>
+    {/* Wallet */}
+    <td className="p-6">
+      <div className="h-2.5 rounded bg-gray-300/20 w-3/4 font-mono" />
+    </td>
+    {/* Salary */}
+    <td className="p-6">
+      <div className="h-2.5 rounded bg-gray-300/30 w-1/2" />
+    </td>
+    {/* Status */}
+    <td className="p-6">
+      <div className="h-5 rounded-full bg-gray-300/20 w-16" />
+    </td>
+    {/* Actions */}
+    <td className="p-6">
+      <div className="flex gap-2">
+        <div className="w-5 h-5 rounded bg-gray-300/20" />
+        <div className="w-5 h-5 rounded bg-gray-300/20" />
+      </div>
+    </td>
+  </tr>
+);
+
 export const EmployeeList: React.FC<EmployeeListProps> = ({
   employees,
+  isLoading = false,
   onAddEmployee,
   onEditEmployee,
   onRemoveEmployee,
@@ -51,6 +95,8 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({
   }>({ open: false });
   const [sortKey, setSortKey] = useState<keyof Employee>('name');
   const [sortAsc, setSortAsc] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearch = useDebounce(searchQuery, 300);
 
   const handleDataParsed = (data: CSVRow[]) => {
     const newEmployees = data.map((row) => ({
@@ -82,7 +128,18 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({
     }
   };
 
-  const sortedEmployees = [...employees].sort((a, b) => {
+  const filteredEmployees = debouncedSearch
+    ? employees.filter((emp) => {
+        const q = debouncedSearch.toLowerCase();
+        return (
+          emp.name.toLowerCase().includes(q) ||
+          emp.email.toLowerCase().includes(q) ||
+          emp.position.toLowerCase().includes(q)
+        );
+      })
+    : employees;
+
+  const sortedEmployees = [...filteredEmployees].sort((a, b) => {
     const valA = a[sortKey] ?? '';
     const valB = b[sortKey] ?? '';
     if (typeof valA === 'number' && typeof valB === 'number') {
@@ -149,52 +206,41 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({
 
   return (
     <div className="w-full card glass noise overflow-hidden p-0">
-      <div className="flex justify-between items-center p-6 gap-4">
+      <div className="flex flex-wrap justify-between items-center gap-3 p-6">
         <span className="font-bold text-lg">Employees</span>
-        <div className="relative flex-1 max-w-xs">
-          <svg
-            className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-            />
-          </svg>
-          <input
-            type="text"
-            placeholder="Search employees..."
-            className="w-full bg-surface/50 border border-hi rounded-lg pl-10 pr-4 py-2 text-sm outline-none focus:border-accent focus:bg-accent/5 transition-all"
-          />
-        </div>
+        <input
+          type="search"
+          id="employee-search"
+          aria-label="Search employees"
+          placeholder="Search by name, email, or role…"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="rounded border border-gray-300 bg-transparent px-3 py-1.5 text-sm placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-accent"
+        />
       </div>
-      <table className="w-full text-left border-collapse">
+      <table className="w-full table-fixed text-left border-collapse">
         <thead>
           <tr className="border-b border-hi">
             <th
-              className="p-6 text-xs font-bold uppercase tracking-widest text-muted cursor-pointer"
+              className="w-[28%] p-6 text-xs font-bold uppercase tracking-widest text-muted cursor-pointer"
               onClick={() => handleSort('name')}
             >
               Name {sortKey === 'name' && (sortAsc ? '▲' : '▼')}
             </th>
             <th
-              className="p-6 text-xs font-bold uppercase tracking-widest text-muted cursor-pointer"
+              className="w-[18%] p-6 text-xs font-bold uppercase tracking-widest text-muted cursor-pointer"
               onClick={() => handleSort('position')}
             >
               Role {sortKey === 'position' && (sortAsc ? '▲' : '▼')}
             </th>
             <th
-              className="p-6 text-xs font-bold uppercase tracking-widest text-muted cursor-pointer"
+              className="w-[16%] p-6 text-xs font-bold uppercase tracking-widest text-muted cursor-pointer"
               onClick={() => handleSort('wallet')}
             >
               Wallet {sortKey === 'wallet' && (sortAsc ? '▲' : '▼')}
             </th>
             <th
-              className="p-6 text-xs font-bold uppercase tracking-widest text-muted cursor-pointer"
+              className="w-[14%] p-6 text-xs font-bold uppercase tracking-widest text-muted cursor-pointer"
               onClick={() => handleSort('salary')}
             >
               Salary {sortKey === 'salary' && (sortAsc ? '▲' : '▼')}
@@ -208,90 +254,118 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({
             <th className="p-6 text-xs font-bold uppercase tracking-widest text-muted">Actions</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-gray-200">
-          {sortedEmployees.length === 0 ? (
+        <tbody className="divide-y divide-gray-200/5">
+          {isLoading ? (
+            Array.from({ length: SKELETON_ROW_COUNT }, (_, i) => <EmployeeSkeletonRow key={i} />)
+          ) : sortedEmployees.length === 0 ? (
             <tr>
-              <td colSpan={6} className="p-6 text-center text-gray-500">
-                No employees found
+              <td colSpan={6} className="p-12 text-center">
+                <div className="flex flex-col items-center gap-3">
+                  <Icon.User className="text-muted w-12 h-12 opacity-20" />
+                  <p className="text-muted font-medium">
+                    {debouncedSearch ? `No employees match "${debouncedSearch}"` : 'No employees found'}
+                  </p>
+                </div>
               </td>
             </tr>
           ) : (
-            sortedEmployees.map((employee) => (
-              <tr key={employee.id} className="cursor-pointer transition">
+            sortedEmployees.map((employee, idx) => (
+              <tr
+                key={employee.id}
+                className="group cursor-pointer transition-all hover:bg-accent/[0.03]"
+                style={{ animationDelay: `${idx * 0.05}s` }}
+              >
                 <td className="p-6">
-                  <div className="flex items-center gap-3">
-                    <Avatar
-                      email={employee.email}
-                      name={employee.name}
-                      imageUrl={employee.imageUrl}
-                      size="sm"
-                    />
-                    <div className="flex flex-col">
-                      <span className="text-xs text-muted">{employee.name}</span>
-                      <button
-                        type="button"
-                        className="text-[10px] text-blue-500 hover:underline text-left"
-                        onClick={() => setShowAvatarModal({ open: true, employee })}
+                  <div className="flex items-center gap-4">
+                    <div className="relative">
+                      <Avatar
+                        email={employee.email}
+                        name={employee.name}
+                        imageUrl={employee.imageUrl}
+                        size="md"
+                      />
+                      <div className={`absolute -bottom-1 -right-1 w-3 h-3 rounded-full border-2 border-bg ${employee.status === 'Active' ? 'bg-success' : 'bg-danger'}`} />
+                    </div>
+                    <div className="min-w-0 flex flex-col">
+                      <span
+                        className="truncate text-sm font-bold text-text group-hover:text-accent transition-colors"
+                        title={employee.name}
                       >
-                        Update photo
-                      </button>
+                        {employee.name}
+                      </span>
+                      <span
+                        className="truncate text-xs text-muted"
+                        title={employee.email}
+                      >
+                        {employee.email}
+                      </span>
                     </div>
                   </div>
                 </td>
-                <td className="p-6 text-sm font-medium">{employee.position}</td>
-                <td className="p-6 font-mono text-xs text-muted">
-                  {shortenWallet(employee.wallet || '')}
+                <td className="p-6">
+                  <div className="flex flex-col">
+                    <span className="text-sm font-medium text-text truncate">{employee.position}</span>
+                    <span className="text-[10px] text-muted uppercase tracking-wider">Position</span>
+                  </div>
                 </td>
                 <td className="p-6">
-                  {/* Inline salary edit */}
-                  {onEditEmployee ? (
+                  <div className="flex items-center gap-2 group/wallet">
+                    <code className="text-[10px] text-muted font-mono bg-surface-hi px-2 py-1 rounded border border-border">
+                      {shortenWallet(employee.wallet || '')}
+                    </code>
+                  </div>
+                </td>
+                <td className="p-6">
+                  <div className="flex flex-col items-start">
+                    <span className="text-sm font-bold text-text">
+                      {onEditEmployee ? (
+                        <button
+                          className="hover:text-accent transition-colors"
+                          onClick={() => {
+                            setEditSalary(employee.salary || 0);
+                            setShowEditModal({ open: true, employee });
+                          }}
+                        >
+                          ${(employee.salary ?? 0).toLocaleString()}
+                        </button>
+                      ) : (
+                        `$${(employee.salary ?? 0).toLocaleString()}`
+                      )}
+                    </span>
+                    <span className="text-[10px] text-muted uppercase tracking-wider">per month</span>
+                  </div>
+                </td>
+                <td className="p-6">
+                  <span
+                    className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest border transition-all ${
+                      employee.status === 'Active'
+                        ? 'bg-success/10 text-success border-success/20'
+                        : 'bg-danger/10 text-danger border-danger/20'
+                    }`}
+                  >
+                    {employee.status || '-'}
+                  </span>
+                </td>
+                <td className="p-6">
+                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
-                      className="text-blue-500 underline"
+                      className="p-2 text-muted hover:text-accent hover:bg-accent/10 rounded-lg transition-all"
+                      title="Edit"
                       onClick={() => {
                         setEditSalary(employee.salary || 0);
                         setShowEditModal({ open: true, employee });
                       }}
                     >
-                      {employee.salary ?? 0}
+                      <Pencil className="w-4 h-4" />
                     </button>
-                  ) : (
-                    (employee.salary ?? 0)
-                  )}
-                </td>
-                <td className="p-6">
-                  <span
-                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border ${
-                      employee.status === 'Active'
-                        ? 'bg-green-100 text-green-600 border-green-200'
-                        : 'bg-red-100 text-red-600 border-red-200'
-                    }`}
-                  >
-                    <div
-                      className={`w-1 h-1 rounded-full ${
-                        employee.status === 'Active' ? 'bg-green-600' : 'bg-red-600'
-                      }`}
-                    />
-                    {employee.status || '-'}
-                  </span>
-                </td>
-                <td className="p-6 flex gap-2">
-                  <button
-                    className="text-blue-500 hover:text-blue-700"
-                    title="Edit"
-                    onClick={() => {
-                      setEditSalary(employee.salary || 0);
-                      setShowEditModal({ open: true, employee });
-                    }}
-                  >
-                    <Pencil className="w-5 h-5" />
-                  </button>
-                  <button
-                    className="text-red-500 hover:text-red-700"
-                    title="Remove"
-                    onClick={() => setShowDeleteConfirm({ open: true, employee })}
-                  >
-                    <Trash2 className="w-5 h-5" />
-                  </button>
+                    <button
+                      className="p-2 text-muted hover:text-danger hover:bg-danger/10 rounded-lg transition-all"
+                      title="Remove"
+                      onClick={() => setShowDeleteConfirm({ open: true, employee })}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))

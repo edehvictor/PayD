@@ -4,10 +4,18 @@ import {
   UpdateEmployeeInput,
   EmployeeQueryInput,
 } from '../schemas/employeeSchema.js';
-import { WebhookService, WEBHOOK_EVENTS } from './webhook.service.js';
+import { webhookNotificationService, WEBHOOK_EVENTS } from './webhookNotificationService.js';
+import { StrKey } from '@stellar/stellar-sdk';
 
 export class EmployeeService {
+  private validateStellarAddress(address?: string) {
+    if (address && !StrKey.isValidEd25519PublicKey(address)) {
+      throw new Error(`Invalid Stellar wallet address: ${address}`);
+    }
+  }
+
   async create(data: CreateEmployeeInput, dbClient?: any) {
+    this.validateStellarAddress(data.wallet_address);
     const executor = dbClient || pool;
     const {
       organization_id,
@@ -108,7 +116,7 @@ export class EmployeeService {
     payload: any
   ): Promise<void> {
     try {
-      await WebhookService.dispatch(eventType, organization_id, payload);
+      await webhookNotificationService.dispatch(eventType, payload, organization_id);
     } catch (error) {
       console.error(`Webhook dispatch failed for ${eventType}:`, error);
     }
@@ -244,6 +252,9 @@ export class EmployeeService {
   }
 
   async update(id: number, organization_id: number, data: UpdateEmployeeInput) {
+    if (data.wallet_address) {
+      this.validateStellarAddress(data.wallet_address);
+    }
     const fields: string[] = [];
     const values: (string | number | null)[] = [];
     let paramIndex = 1;
