@@ -6,6 +6,7 @@ import { useFilterState } from '../hooks/useFilterState';
 import { useTransactionHistory } from '../hooks/useTransactionHistory';
 import { useSocket } from '../hooks/useSocket';
 import { ConnectionStatus } from '../components/ConnectionStatus';
+import { getTxExplorerUrl } from '../utils/stellarExpert';
 
 const POLLING_INTERVAL_MS = 15_000;
 
@@ -333,7 +334,7 @@ export default function TransactionHistory() {
                         {item.txHash}
                       </span>
                       <a
-                        href={`https://stellar.expert/explorer/public/tx/${item.txHash}`}
+                        href={getTxExplorerUrl(item.txHash)}
                         target="_blank"
                         rel="noreferrer"
                         className="text-[10px] font-bold text-accent hover:underline uppercase tracking-widest"
