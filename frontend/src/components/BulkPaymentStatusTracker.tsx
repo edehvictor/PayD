@@ -444,13 +444,16 @@ function FragmentRow({
                     rowCount={summary.items.length}
                     rowHeight={92}
                     rowComponent={VirtualizedRecipientRow}
-                    rowProps={{
-                      items: summary.items,
-                      run,
-                      onChainState,
-                      retryingKey,
-                      onRetry,
-                    }}
+                    rowProps={
+                      {
+                        items: summary.items,
+                        run,
+                        onChainState,
+                        retryingKey,
+                        onRetry,
+                        // index and style are injected per-row by List at render time
+                      } as any
+                    }
                     style={{ height: 400, width: '100%' }}
                   />
                 ) : (

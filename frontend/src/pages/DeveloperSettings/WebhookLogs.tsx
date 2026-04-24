@@ -284,7 +284,7 @@ const WebhookLogs: React.FC = () => {
               </div>
 
               <div className="pt-4 border-t border-white/5">
-                <Button fullWidth variant="secondary" onClick={() => setSelectedLog(null)}>
+                <Button isFullWidth variant="secondary" onClick={() => setSelectedLog(null)}>
                   Close Details
                 </Button>
               </div>
@@ -309,7 +309,7 @@ const WebhookLogs: React.FC = () => {
             <p className="text-xs text-slate-400">
               Manually trigger a test event to verify your endpoint configuration.
             </p>
-            <Button fullWidth variant="primary" size="sm" className="glow-mint">
+            <Button isFullWidth variant="primary" size="sm" className="glow-mint">
               Send Test Ping
             </Button>
           </div>
