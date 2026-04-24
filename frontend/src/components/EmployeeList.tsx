@@ -3,7 +3,7 @@ import { Avatar } from './Avatar';
 import { AvatarUpload } from './AvatarUpload';
 import { CSVUploader } from './CSVUploader';
 import type { CSVRow } from './CSVUploader';
-import { Pencil, Trash2 } from 'lucide-react';
+import { Pencil, Search, Trash2, X } from 'lucide-react';
 
 interface Employee {
   id: string;
@@ -47,6 +47,8 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({
   }>({ open: false });
   const [sortKey, setSortKey] = useState<keyof Employee>('name');
   const [sortAsc, setSortAsc] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'All' | 'Active' | 'Inactive'>('All');
 
   const handleDataParsed = (data: CSVRow[]) => {
     const newEmployees = data.map((row) => ({
@@ -78,7 +80,19 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({
     }
   };
 
-  const sortedEmployees = [...employees].sort((a, b) => {
+  const filteredEmployees = employees.filter((emp) => {
+    const q = searchQuery.toLowerCase();
+    const matchesSearch =
+      !q ||
+      emp.name.toLowerCase().includes(q) ||
+      emp.email.toLowerCase().includes(q) ||
+      (emp.position ?? '').toLowerCase().includes(q) ||
+      (emp.wallet ?? '').toLowerCase().includes(q);
+    const matchesStatus = statusFilter === 'All' || emp.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
+
+  const sortedEmployees = [...filteredEmployees].sort((a, b) => {
     const valA = a[sortKey] ?? '';
     const valB = b[sortKey] ?? '';
     if (typeof valA === 'number' && typeof valB === 'number') {
@@ -145,8 +159,51 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({
 
   return (
     <div className="w-full card glass noise overflow-hidden p-0">
-      <div className="flex justify-between items-center p-6">
-        <span className="font-bold text-lg">Employees</span>
+      <div className="flex flex-col gap-3 p-6 sm:flex-row sm:items-center sm:justify-between">
+        <span className="font-bold text-lg">
+          Employees
+          {searchQuery || statusFilter !== 'All' ? (
+            <span className="ml-2 text-sm font-normal text-muted">
+              ({sortedEmployees.length} result{sortedEmployees.length !== 1 ? 's' : ''})
+            </span>
+          ) : null}
+        </span>
+
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Search input */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted pointer-events-none" />
+            <input
+              type="text"
+              placeholder="Search employees…"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              aria-label="Search employees"
+              className="pl-9 pr-8 py-1.5 text-sm rounded-lg border border-hi bg-transparent focus:outline-none focus:ring-2 focus:ring-accent w-48"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                aria-label="Clear search"
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted hover:text-foreground"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+
+          {/* Status filter */}
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as 'All' | 'Active' | 'Inactive')}
+            aria-label="Filter by status"
+            className="py-1.5 px-3 text-sm rounded-lg border border-hi bg-transparent focus:outline-none focus:ring-2 focus:ring-accent"
+          >
+            <option value="All">All statuses</option>
+            <option value="Active">Active</option>
+            <option value="Inactive">Inactive</option>
+          </select>
+        </div>
       </div>
       <table className="w-full text-left border-collapse">
         <thead>
@@ -187,8 +244,21 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({
         <tbody className="divide-y divide-gray-200">
           {sortedEmployees.length === 0 ? (
             <tr>
-              <td colSpan={6} className="p-6 text-center text-gray-500">
-                No employees found
+              <td colSpan={6} className="p-10 text-center text-muted">
+                {searchQuery || statusFilter !== 'All' ? (
+                  <div className="flex flex-col items-center gap-2">
+                    <Search className="h-8 w-8 opacity-30" />
+                    <span>No employees match your search.</span>
+                    <button
+                      onClick={() => { setSearchQuery(''); setStatusFilter('All'); }}
+                      className="mt-1 text-sm underline hover:text-foreground"
+                    >
+                      Clear filters
+                    </button>
+                  </div>
+                ) : (
+                  'No employees found'
+                )}
               </td>
             </tr>
           ) : (
