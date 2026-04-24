@@ -2,7 +2,7 @@ import { Button, Card, Heading, Input, Select, Text } from '@stellar/design-syst
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import axios, { AxiosError } from 'axios';
-import { CalendarDays, Clock3, PencilLine } from 'lucide-react';
+import { CalendarDays, Clock3, PencilLine, Inbox } from 'lucide-react';
 
 // Type assertion for Stellar components to work around library typing issues
 const InputComponent = Input as unknown as React.FC<Record<string, unknown>>;
@@ -304,10 +304,7 @@ export default function PayrollScheduler() {
         const errorMessage = axios.isAxiosError(err)
           ? ((err as AxiosError<{ error?: string }>).response?.data?.error ?? fallback)
           : fallback;
-        notifyApiError(
-          'Webhook trigger failed',
-          errorMessage
-        );
+        notifyApiError('Webhook trigger failed', errorMessage);
         console.warn('Webhook trigger error:', err);
       }
 
@@ -588,9 +585,12 @@ export default function PayrollScheduler() {
         </Heading>
         <Card>
           {pendingClaims.length === 0 ? (
-            <Text as="p" size="sm" weight="regular" addlClassName="text-muted">
-              No pending claimable balances.
-            </Text>
+            <div className="flex flex-col items-center justify-center py-10 gap-3 text-center">
+              <Inbox size={40} className="text-muted opacity-50" aria-hidden="true" />
+              <Text as="p" size="sm" weight="regular" addlClassName="text-muted">
+                No pending claimable balances.
+              </Text>
+            </div>
           ) : (
             <ul className="flex flex-col gap-4">
               {pendingClaims.map((claim: PendingClaim) => (
