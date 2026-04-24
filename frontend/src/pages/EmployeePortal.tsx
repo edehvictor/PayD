@@ -492,6 +492,7 @@ const EmployeePortal: React.FC = () => {
               className={styles.pageBtn}
               onClick={() => setCurrentPage(currentPage - 1)}
               disabled={currentPage <= 1}
+              aria-label="Previous page"
             >
               ‹
             </button>
@@ -500,6 +501,8 @@ const EmployeePortal: React.FC = () => {
                 key={p}
                 className={`${styles.pageBtn} ${p === currentPage ? styles.pageBtnActive : ''}`}
                 onClick={() => setCurrentPage(p)}
+                aria-label={`Page ${p}`}
+                aria-current={p === currentPage ? 'page' : undefined}
               >
                 {p}
               </button>
@@ -508,6 +511,7 @@ const EmployeePortal: React.FC = () => {
               className={styles.pageBtn}
               onClick={() => setCurrentPage(currentPage + 1)}
               disabled={currentPage >= totalPages}
+              aria-label="Next page"
             >
               ›
             </button>
