@@ -10,6 +10,12 @@ vi.mock('../AvatarUpload', () => ({
   AvatarUpload: () => null,
 }));
 
+vi.mock('../../hooks/useNotification', () => ({
+  useNotification: () => ({
+    notifySuccess: vi.fn(),
+  }),
+}));
+
 vi.mock('../CSVUploader', () => ({
   CSVUploader: () => null,
 }));
