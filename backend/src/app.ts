@@ -19,9 +19,10 @@ import metricsRoutes from './routes/metricsRoutes.js';
 // Feature Routes
 import v1Routes from './routes/v1/index.js';
 import authRoutes from './routes/authRoutes.js';
-import webhookRoutes from './routes/webhook.routes.js';
+import webhookRoutes from './routes/webhookNotificationRoutes.js';
 import notificationRoutes from './routes/notificationRoutes.js';
 import { HealthController } from './controllers/healthController.js';
+import { apiErrorResponse, ErrorCodes } from './utils/apiError.js';
 
 // Legacy Routes
 import payrollAuditRoutes from './routes/payrollAuditRoutes.js';
@@ -100,6 +101,9 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 app.get('/api/openapi.json', (_req, res) => {
   res.json(swaggerSpec);
 });
+app.get('/api/v1/openapi.json', (_req, res) => {
+  res.json(swaggerSpec);
+});
 
 // Export openapi.json for frontend
 fs.writeFileSync(path.join(__appDirname, '../openapi.json'), JSON.stringify(swaggerSpec, null, 2));
@@ -116,7 +120,11 @@ app.get('/api', (_req, res) => {
     name: 'PayD API',
     currentVersion: 'v1',
     supportedVersions: ['v1'],
-    endpoints: { v1: '/api/v1' },
+    endpoints: {
+      v1: '/api/v1',
+      health: '/api/v1/health',
+      openapi: '/api/v1/openapi.json',
+    },
   });
 });
 
@@ -136,13 +144,14 @@ app.use('/api', apiRateLimit(), contractRoutes);
 app.use('/api/stellar-throttling', apiRateLimit(), stellarThrottlingRoutes);
 
 // Health check endpoints
+app.get('/api/v1/health', HealthController.getHealthStatus);
 app.get('/api/health', HealthController.getHealthStatus);
 app.get('/health', HealthController.getHealthStatus);
 
 // ─── 404 ─────────────────────────────────────────────────────────────────────
 app.use((req, res) => {
   res.status(404).json({
-    error: 'Not Found',
+    ...apiErrorResponse(ErrorCodes.NOT_FOUND, `Route ${req.method} ${req.path} not found`),
     path: req.path,
   });
 });
@@ -154,9 +163,11 @@ app.use(errorLogger);
 app.use((err: Error, req: express.Request, res: express.Response, _next: express.NextFunction) => {
   logger.error('Unhandled error', err);
   res.status(500).json({
-    error: 'Internal Server Error',
+    ...apiErrorResponse(
+      ErrorCodes.INTERNAL_ERROR,
+      config.nodeEnv === 'development' ? err.message : 'An unexpected error occurred'
+    ),
     requestId: req.requestId,
-    message: config.nodeEnv === 'development' ? err.message : 'An error occurred',
   });
 });
 

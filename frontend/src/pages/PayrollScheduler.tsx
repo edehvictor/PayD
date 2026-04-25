@@ -1,6 +1,8 @@
 import { Button, Card, Heading, Input, Select, Text } from '@stellar/design-system';
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import axios, { AxiosError } from 'axios';
+import { CalendarDays, Clock3, PencilLine, Inbox } from 'lucide-react';
 
 // Type assertion for Stellar components to work around library typing issues
 const InputComponent = Input as unknown as React.FC<Record<string, unknown>>;
@@ -23,6 +25,13 @@ import { ContractErrorPanel } from '../components/ContractErrorPanel';
 import { IssuerMultisigBanner } from '../components/IssuerMultisigBanner';
 import { HelpLink } from '../components/HelpLink';
 import { parseContractError, type ContractErrorDetail } from '../utils/contractErrorParser';
+import { formatDate } from '../utils/dateHelpers';
+import axiosInstance from '../api/axiosInstance';
+import {
+  computeNextRunDate,
+  getLocalTimezoneLabel,
+  type SchedulingConfig,
+} from '../utils/scheduling';
 
 interface PayrollFormState {
   employeeName: string;
@@ -37,108 +46,6 @@ interface PayrollFormErrors {
   amount?: string;
   startDate?: string;
 }
-
-type SchedulingFrequency = 'weekly' | 'biweekly' | 'monthly';
-
-interface EmployeePreference {
-  id: string;
-  name: string;
-  amount: string;
-  currency: string;
-}
-
-interface SchedulingConfig {
-  frequency: SchedulingFrequency;
-  dayOfWeek?: number;
-  dayOfMonth?: number;
-  timeOfDay: string; // HH:mm
-  preferences: EmployeePreference[];
-}
-
-function parseTimeOfDay(time: string) {
-  const [hhRaw, mmRaw] = time.split(':');
-  const hh = Number.parseInt(hhRaw ?? '0', 10);
-  const mm = Number.parseInt(mmRaw ?? '0', 10);
-  return {
-    hours: Number.isFinite(hh) ? hh : 0,
-    minutes: Number.isFinite(mm) ? mm : 0,
-  };
-}
-
-function clampDayOfMonth(year: number, monthIndex: number, desired: number) {
-  const lastDay = new Date(year, monthIndex + 1, 0).getDate();
-  return Math.max(1, Math.min(desired, lastDay));
-}
-
-function computeNextRunDate(config: SchedulingConfig, from: Date = new Date()): Date {
-  const { hours, minutes } = parseTimeOfDay(config.timeOfDay);
-
-  if (config.frequency === 'monthly') {
-    const desiredDay = config.dayOfMonth || 1;
-
-    const year = from.getFullYear();
-    const monthIndex = from.getMonth();
-
-    let candidate = new Date(
-      year,
-      monthIndex,
-      clampDayOfMonth(year, monthIndex, desiredDay),
-      hours,
-      minutes,
-      0,
-      0
-    );
-
-    if (candidate.getTime() <= from.getTime()) {
-      const nextMonthIndex = monthIndex + 1;
-      candidate = new Date(
-        year,
-        nextMonthIndex,
-        clampDayOfMonth(year, nextMonthIndex, desiredDay),
-        hours,
-        minutes,
-        0,
-        0
-      );
-    }
-
-    return candidate;
-  }
-
-  // weekly / biweekly
-  const dayOfWeek = config.dayOfWeek ?? 1; // default Monday
-  const diffDays = (dayOfWeek - from.getDay() + 7) % 7;
-
-  const first = new Date(from);
-  first.setDate(from.getDate() + diffDays);
-  first.setHours(hours, minutes, 0, 0);
-
-  if (diffDays === 0 && first.getTime() <= from.getTime()) {
-    first.setDate(first.getDate() + 7);
-  }
-
-  return first;
-}
-
-const formatDate = (dateString: string) => {
-  if (!dateString) return 'N/A';
-
-  const dateOnlyMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateString);
-  const date = dateOnlyMatch
-    ? new Date(
-        Number.parseInt(dateOnlyMatch[1], 10),
-        Number.parseInt(dateOnlyMatch[2], 10) - 1,
-        Number.parseInt(dateOnlyMatch[3], 10)
-      )
-    : new Date(dateString);
-
-  if (isNaN(date.getTime())) return dateString;
-  return date.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
-};
 
 interface PendingClaim {
   id: string;
@@ -179,6 +86,7 @@ export default function PayrollScheduler() {
   const [activeSchedule, setActiveSchedule] = useState<SchedulingConfig | null>(null);
   const [nextRunDate, setNextRunDate] = useState<Date | null>(null);
   const [contractError, setContractError] = useState<ContractErrorDetail | null>(null);
+  const timezoneLabel = getLocalTimezoneLabel();
 
   const scheduleStorageKey = 'payd-scheduler-config';
 
@@ -236,8 +144,6 @@ export default function PayrollScheduler() {
   }, []);
 
   const handleScheduleComplete = (config: SchedulingConfig) => {
-    // SchedulingWizard calls back with the full SchedulingConfig, but the current type in
-    // this file is intentionally loose to avoid coupling to the component's internal type.
     setActiveSchedule(config);
     setIsWizardOpen(false);
     notifySuccess(
@@ -384,25 +290,22 @@ export default function PayrollScheduler() {
 
       // Trigger Webhook Event (Internal simulation)
       try {
-        await fetch('http://localhost:3001/api/webhooks/test-trigger', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            event: 'payment.completed',
-            payload: {
-              id: newClaim.id,
-              employeeName: newClaim.employeeName,
-              amount: newClaim.amount,
-              status: 'created',
-            },
-          }),
+        await axiosInstance.post('/api/webhooks/trigger', {
+          eventType: 'payment.completed',
+          payload: {
+            id: newClaim.id,
+            employeeName: newClaim.employeeName,
+            amount: newClaim.amount,
+            status: 'created',
+          },
         });
-      } catch {
-        notifyApiError(
-          'Webhook trigger failed',
-          'Payment was created, but webhook test trigger failed.'
-        );
-        console.warn('Webhook test-trigger skipped (Backend might not be running)');
+      } catch (err: unknown) {
+        const fallback = 'Payment was created, but webhook test trigger failed.';
+        const errorMessage = axios.isAxiosError(err)
+          ? ((err as AxiosError<{ error?: string }>).response?.data?.error ?? fallback)
+          : fallback;
+        notifyApiError('Webhook trigger failed', errorMessage);
+        console.warn('Webhook trigger error:', err);
       }
 
       resetSimulation();
@@ -452,20 +355,23 @@ export default function PayrollScheduler() {
         </div>
         <div className="flex flex-col items-end gap-2">
           <AutosaveIndicator saving={saving} lastSaved={lastSaved} />
-          <button onClick={() => setIsWizardOpen(true)}>
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <circle cx="12" cy="12" r="10" />
-              <polyline points="12 6 12 12 16 14" />
-            </svg>
+          <button
+            type="button"
+            onClick={() => setIsWizardOpen(true)}
+            className="inline-flex items-center gap-2 rounded-xl border border-accent/25 bg-accent/10 px-3.5 py-2 text-sm font-semibold text-accent transition-colors hover:bg-accent/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]"
+            aria-label={activeSchedule ? 'Edit payroll schedule' : 'Configure payroll schedule'}
+          >
+            {activeSchedule ? (
+              <>
+                <PencilLine className="h-4 w-4" aria-hidden="true" />
+                Edit schedule
+              </>
+            ) : (
+              <>
+                <CalendarDays className="h-4 w-4" aria-hidden="true" />
+                Configure schedule
+              </>
+            )}
           </button>
         </div>
       </div>
@@ -473,29 +379,31 @@ export default function PayrollScheduler() {
       <IssuerMultisigBanner />
 
       {activeSchedule && (
-        <div className="w-full mb-12 bg-black/20 border border-success/30 rounded-2xl p-6 flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden">
+        <div className="relative mb-12 flex w-full flex-col gap-6 overflow-hidden rounded-2xl border border-success/30 bg-black/20 p-6 md:flex-row md:items-center md:justify-between">
           <div className="absolute top-0 left-0 w-1 h-full bg-success"></div>
-          <div>
-            <h3 className="text-success font-black text-lg mb-1 flex items-center gap-2">
-              <svg
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="3"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <polyline points="20 6 9 17 4 12" />
-              </svg>
+          <div className="space-y-2">
+            <h3 className="mb-1 flex items-center gap-2 text-lg font-black text-success">
+              <CalendarDays className="h-5 w-5" aria-hidden="true" />
               Automation Active
             </h3>
-            <p className="text-muted text-sm">
+            <p className="text-sm text-muted">
               Scheduled to run{' '}
               <span className="font-bold text-text capitalize">{activeSchedule.frequency}</span> at{' '}
-              <span className="font-mono text-text">{activeSchedule.timeOfDay}</span>
+              <span className="font-mono text-text">{activeSchedule.timeOfDay}</span> in{' '}
+              <span className="font-semibold text-text">{timezoneLabel}</span>
             </p>
+            {nextRunDate ? (
+              <p className="flex items-center gap-2 text-xs text-muted">
+                <Clock3 className="h-3.5 w-3.5" aria-hidden="true" />
+                Next run window opens{' '}
+                <span className="font-semibold text-text">
+                  {nextRunDate.toLocaleString(undefined, {
+                    dateStyle: 'medium',
+                    timeStyle: 'short',
+                  })}
+                </span>
+              </p>
+            ) : null}
           </div>
           <div className="bg-bg border border-hi rounded-xl p-4 shadow-inner">
             <span className="block text-[10px] uppercase font-bold text-muted mb-2 tracking-widest text-center">
@@ -508,6 +416,8 @@ export default function PayrollScheduler() {
 
       {isWizardOpen ? (
         <SchedulingWizard
+          initialConfig={activeSchedule}
+          timezoneLabel={timezoneLabel}
           onComplete={handleScheduleComplete}
           onCancel={() => setIsWizardOpen(false)}
         />
@@ -675,9 +585,12 @@ export default function PayrollScheduler() {
         </Heading>
         <Card>
           {pendingClaims.length === 0 ? (
-            <Text as="p" size="sm" weight="regular" addlClassName="text-muted">
-              No pending claimable balances.
-            </Text>
+            <div className="flex flex-col items-center justify-center py-10 gap-3 text-center">
+              <Inbox size={40} className="text-muted opacity-50" aria-hidden="true" />
+              <Text as="p" size="sm" weight="regular" addlClassName="text-muted">
+                No pending claimable balances.
+              </Text>
+            </div>
           ) : (
             <ul className="flex flex-col gap-4">
               {pendingClaims.map((claim: PendingClaim) => (

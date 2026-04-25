@@ -161,13 +161,13 @@ pub enum LimitTier {
 
 /// Per-payment lifecycle status used by `execute_batch_v2`.
 ///
-/// State machine:
-///   Pending → Sent     (payment executed successfully in partial mode)
-///   Pending → Failed   (payment skipped; funds held in contract for refund)
-///   Failed  → Refunded (`refund_failed_payment` called successfully)
-///
-/// In `all_or_nothing = true` mode all entries are written directly as `Sent`
-/// (the function reverts before writing anything if any amount is invalid).
+/// ### State Machine
+/// 1. **Pending**: Initial state before any execution (internal to input).
+/// 2. **Sent**: Successfully executed payment where funds moved from sender to recipient.
+/// 3. **Failed**: Payment skipped due to invalid amount or insufficient funds. 
+///    The proportional funds are held in the contract account.
+/// 4. **Refunded**: A previously `Failed` payment whose funds have been returned 
+///    to the original sender via `refund_failed_payment`.
 #[contracttype]
 #[derive(Copy, Clone, Debug, PartialEq)]
 #[repr(u32)]
@@ -527,23 +527,28 @@ impl BulkPaymentContract {
 
     /// Unified batch entry point with a runtime `all_or_nothing` flag.
     ///
-    /// ### `all_or_nothing = true`  
-    /// Identical semantics to `execute_batch`: every amount is validated before
-    /// any funds move. Any invalid amount reverts the entire call. On success,
-    /// each payment is recorded as `PaymentStatus::Sent` for auditability.
+    /// This function serves as the primary entry point for batch payments, supporting 
+    /// two distinct modes of execution to balance strict atomicity with resilience.
     ///
-    /// ### `all_or_nothing = false`  
-    /// Partial-success mode with per-payment state tracking and a manual refund
-    /// path:
-    /// - Valid payments execute immediately (contract → recipient).
-    /// - Invalid payments (`amount ≤ 0`) are recorded as `PaymentStatus::Failed`
-    ///   and their proportional funds are **held inside the contract**.
-    /// - The caller — or anyone on their behalf — may later call
-    ///   `refund_failed_payment(batch_id, payment_index)` to return held funds
-    ///   to the original sender.
+    /// ### `all_or_nothing = true` (Strict Mode)
+    /// - **Atomicity**: The entire batch succeeds or the entire call reverts.
+    /// - **Validation**: Every payment amount is validated (must be > 0) before 
+    ///   any funds move.
+    /// - **Transfer**: Funds move directly from `sender` to each `recipient`.
+    /// - **Auditability**: On success, each payment is recorded as `Sent`.
     ///
-    /// In both modes every payment gets a `PaymentEntry` that can be queried
-    /// with `get_payment_entry`.
+    /// ### `all_or_nothing = false` (Resilient/Partial Mode)
+    /// - **Best-effort**: Valid payments execute immediately; invalid ones are skipped.
+    /// - **Escrow Mechanism**: Funds for the entire batch (sum of positive amounts) 
+    ///   are first pulled into the contract.
+    /// - **State Tracking**: 
+    ///     - Successful transfers are marked `Sent`.
+    ///     - Failed transfers (e.g. invalid amount) are marked `Failed`.
+    /// - **Manual Recovery**: Funds associated with `Failed` entries remain in the 
+    ///   contract and must be retrieved using `refund_failed_payment`.
+    ///
+    /// In both modes, every individual payment generates a `PaymentEntry` for 
+    /// granular status querying via `get_payment_entry`.
     pub fn execute_batch_v2(
         env: Env,
         sender: Address,
@@ -572,8 +577,17 @@ impl BulkPaymentContract {
     /// Refund a single `Failed` payment from an `execute_batch_v2` partial
     /// batch back to the original batch sender.
     ///
-    /// The refund destination is always `BatchRecord.sender`; the caller
-    /// cannot redirect it, so no additional `require_auth` is needed.
+    /// This function implements a secure recovery path for funds that were 
+    /// earmarked for a payment that failed validation. 
+    ///
+    /// ### Security Model
+    /// - **Fixed Destination**: Funds are *always* returned to `BatchRecord.sender`.
+    /// - **No Authorization Required**: Since the destination is fixed to the 
+    ///   original funder, anyone can trigger the refund (e.g. a maintenance bot) 
+    ///   without risking fund diversion.
+    ///
+    /// ### State Transition
+    /// `Failed` → `Refunded` (Prevents double-refunding).
     ///
     /// ### Errors
     /// | Code | Meaning |
@@ -589,12 +603,12 @@ impl BulkPaymentContract {
     ) -> Result<(), ContractError> {
         // Resolve sender and token from the batch record.
         let batch_key = DataKey::Batch(batch_id);
-        let batch: BatchRecord = env.storage().temporary().get(&batch_key)
+        let batch: BatchRecord = env.storage().persistent().get(&batch_key)
             .ok_or(ContractError::BatchNotFound)?;
 
         // Load the individual payment entry.
         let entry_key = DataKey::PaymentEntry(batch_id, payment_index);
-        let mut entry: PaymentEntry = env.storage().temporary().get(&entry_key)
+        let mut entry: PaymentEntry = env.storage().persistent().get(&entry_key)
             .ok_or(ContractError::PaymentNotFound)?;
 
         // Guard: status must be Failed — Refunded and Sent/Pending are errors.
@@ -614,9 +628,9 @@ impl BulkPaymentContract {
 
         // Transition status to Refunded and persist.
         entry.status = PaymentStatus::Refunded;
-        env.storage().temporary().set(&entry_key, &entry);
-        env.storage().temporary().extend_ttl(
-            &entry_key, TEMPORARY_TTL_THRESHOLD, TEMPORARY_TTL_EXTEND_TO,
+        env.storage().persistent().set(&entry_key, &entry);
+        env.storage().persistent().extend_ttl(
+            &entry_key, PERSISTENT_TTL_THRESHOLD, PERSISTENT_TTL_EXTEND_TO,
         );
 
         env.events().publish(
@@ -634,7 +648,7 @@ impl BulkPaymentContract {
         payment_index: u32,
     ) -> Result<PaymentEntry, ContractError> {
         let key = DataKey::PaymentEntry(batch_id, payment_index);
-        let entry: PaymentEntry = env.storage().temporary().get(&key)
+        let entry: PaymentEntry = env.storage().persistent().get(&key)
             .ok_or(ContractError::PaymentNotFound)?;
         // Reading state should not modify TTL; extend only on write
         Ok(entry)
@@ -705,7 +719,7 @@ impl BulkPaymentContract {
         Self::record_usage(env, &sender, total);
 
         let batch_id = Self::next_batch_id(env);
-        env.storage().temporary().set(&DataKey::Batch(batch_id), &BatchRecord {
+        env.storage().persistent().set(&DataKey::Batch(batch_id), &BatchRecord {
             sender: sender.clone(),
             token:  token.clone(),
             total_sent:    total,
@@ -713,8 +727,8 @@ impl BulkPaymentContract {
             fail_count:    0,
             status:        symbol_short!("completed"),
         });
-        env.storage().temporary().extend_ttl(
-            &DataKey::Batch(batch_id), TEMPORARY_TTL_THRESHOLD, TEMPORARY_TTL_EXTEND_TO,
+        env.storage().persistent().extend_ttl(
+            &DataKey::Batch(batch_id), PERSISTENT_TTL_THRESHOLD, PERSISTENT_TTL_EXTEND_TO,
         );
 
         for (index, op) in payments.iter().enumerate() {
@@ -741,10 +755,14 @@ impl BulkPaymentContract {
 
     /// Partial-success path used by `execute_batch_v2(all_or_nothing = false)`.
     ///
-    /// Pulls only the sum of positive amounts into the contract. Valid payments
-    /// transfer immediately. Payments with `amount ≤ 0` are recorded as
-    /// `PaymentStatus::Failed` and their funds remain in the contract for
-    /// later retrieval via `refund_failed_payment`.
+    /// ### Logic Flow
+    /// 1. **Escrow Initialization**: Calculates the sum of all positive amounts and 
+    ///    transfers that total from `sender` to the contract address.
+    /// 2. **Execution Loop**: Iterates through payments:
+    ///    - If `amount > 0`: Transfers from contract to `recipient`, marks as `Sent`.
+    ///    - If `amount <= 0`: Marks as `Failed`. Proportional funds remain in contract.
+    /// 3. **Dust/Residual Handling**: Any remaining funds (due to calculation 
+    ///    discrepancies or explicit skips) are held for manual refund.
     fn execute_partial_with_refund(
         env: &Env,
         sender: Address,
@@ -844,7 +862,7 @@ impl BulkPaymentContract {
                      else if success_count == 0 { symbol_short!("rollbck") }
                      else                       { symbol_short!("partial") };
 
-        env.storage().temporary().set(&DataKey::Batch(batch_id), &BatchRecord {
+        env.storage().persistent().set(&DataKey::Batch(batch_id), &BatchRecord {
             sender: sender.clone(),
             token:  token.clone(),
             total_sent,
@@ -852,8 +870,8 @@ impl BulkPaymentContract {
             fail_count,
             status,
         });
-        env.storage().temporary().extend_ttl(
-            &DataKey::Batch(batch_id), TEMPORARY_TTL_THRESHOLD, TEMPORARY_TTL_EXTEND_TO,
+        env.storage().persistent().extend_ttl(
+            &DataKey::Batch(batch_id), PERSISTENT_TTL_THRESHOLD, PERSISTENT_TTL_EXTEND_TO,
         );
 
         env.events().publish(
@@ -874,14 +892,14 @@ impl BulkPaymentContract {
         status: PaymentStatus,
     ) {
         let key = DataKey::PaymentEntry(batch_id, payment_index);
-        env.storage().temporary().set(&key, &PaymentEntry {
+        env.storage().persistent().set(&key, &PaymentEntry {
             recipient: op.recipient.clone(),
             amount:    op.amount,
             category:  op.category.clone(),
             status,
         });
-        env.storage().temporary().extend_ttl(
-            &key, TEMPORARY_TTL_THRESHOLD, TEMPORARY_TTL_EXTEND_TO,
+        env.storage().persistent().extend_ttl(
+            &key, PERSISTENT_TTL_THRESHOLD, PERSISTENT_TTL_EXTEND_TO,
         );
     }
 

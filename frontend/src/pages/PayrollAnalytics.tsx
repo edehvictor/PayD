@@ -18,6 +18,7 @@ import {
 } from 'recharts';
 import type { PieLabelRenderProps } from 'recharts';
 import { Card } from '@stellar/design-system';
+import { parseDateString } from '../utils/dateHelpers';
 
 // recharts v3 + React 19: Legend's class-component typings conflict with React.JSX.
 // Cast it to a plain functional component to keep TypeScript happy.
@@ -59,8 +60,8 @@ async function fetchAnalytics(startDate: string, endDate: string): Promise<Analy
   // Simulates an API call — swap for `axios.get('/api/analytics/payroll', { params })`
   await new Promise((r) => setTimeout(r, 300));
 
-  const start = new Date(startDate);
-  const end = new Date(endDate);
+  const start = parseDateString(startDate) ?? new Date();
+  const end = parseDateString(endDate) ?? new Date();
 
   const trends: PayrollTrend[] = [];
   const metrics: PaymentMetric[] = [];
@@ -159,6 +160,54 @@ export default function PayrollAnalytics() {
           </div>
         </div>
       </Card>
+
+      {/* Summary Cards */}
+      {data && (
+        <motion.div
+          className="grid grid-cols-1 md:grid-cols-3 gap-6"
+          variants={containerVariants}
+          initial="hidden"
+          animate="visible"
+        >
+          <motion.div variants={cardVariants}>
+            <Card>
+              <div className="p-6">
+                <p className="text-sm font-medium text-gray-500 uppercase tracking-wider">
+                  Total Payroll
+                </p>
+                <h3 className="text-3xl font-bold mt-1 text-indigo-500">
+                  ${data.trends.reduce((acc, curr) => acc + curr.total, 0).toLocaleString()}
+                </h3>
+                <p className="text-xs text-green-500 mt-2 flex items-center gap-1">
+                  <span>↑ 12%</span> vs last period
+                </p>
+              </div>
+            </Card>
+          </motion.div>
+          <motion.div variants={cardVariants}>
+            <Card>
+              <div className="p-6">
+                <p className="text-sm font-medium text-gray-500 uppercase tracking-wider">
+                  Avg. Salary
+                </p>
+                <h3 className="text-3xl font-bold mt-1 text-cyan-500">$5,420</h3>
+                <p className="text-xs text-gray-400 mt-2">Across 42 employees</p>
+              </div>
+            </Card>
+          </motion.div>
+          <motion.div variants={cardVariants}>
+            <Card>
+              <div className="p-6">
+                <p className="text-sm font-medium text-gray-500 uppercase tracking-wider">
+                  Payment Success
+                </p>
+                <h3 className="text-3xl font-bold mt-1 text-amber-500">98.4%</h3>
+                <p className="text-xs text-gray-400 mt-2">Historical average</p>
+              </div>
+            </Card>
+          </motion.div>
+        </motion.div>
+      )}
 
       {isLoading && <p className="text-center text-gray-500 py-12">Loading analytics…</p>}
 

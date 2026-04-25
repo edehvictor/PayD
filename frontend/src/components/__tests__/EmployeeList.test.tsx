@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, test, vi } from 'vitest';
 import { EmployeeList } from '../EmployeeList';
 
@@ -8,6 +8,12 @@ vi.mock('../Avatar', () => ({
 
 vi.mock('../AvatarUpload', () => ({
   AvatarUpload: () => null,
+}));
+
+vi.mock('../../hooks/useNotification', () => ({
+  useNotification: () => ({
+    notifySuccess: vi.fn(),
+  }),
 }));
 
 vi.mock('../CSVUploader', () => ({
@@ -29,6 +35,28 @@ const employee = {
 };
 
 describe('EmployeeList', () => {
+  test('applies employee search after debounce delay', () => {
+    vi.useFakeTimers();
+    const secondEmployee = {
+      ...employee,
+      id: 'emp-2',
+      name: 'Bob Martin',
+      email: 'bob@example.com',
+    };
+
+    render(<EmployeeList employees={[employee, secondEmployee]} onAddEmployee={vi.fn()} />);
+
+    const searchInput = screen.getByLabelText('Search employees');
+    fireEvent.change(searchInput, { target: { value: 'Bob' } });
+
+    expect(screen.getByLabelText(`Employee name: ${employee.name}`)).toBeTruthy();
+    vi.advanceTimersByTime(350);
+    expect(screen.queryByLabelText(`Employee name: ${employee.name}`)).toBeNull();
+    expect(screen.getByLabelText(`Employee name: ${secondEmployee.name}`)).toBeTruthy();
+
+    vi.useRealTimers();
+  });
+
   test('renders employee name and email with truncation metadata for narrow columns', () => {
     render(<EmployeeList employees={[employee]} onAddEmployee={vi.fn()} />);
 
