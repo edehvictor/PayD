@@ -64,14 +64,6 @@ export interface OnChainBatchState {
   items: OnChainPaymentStatus[];
 }
 
-interface PayrollRunsListResponse {
-  success: boolean;
-  data: {
-    data: PayrollRunRecord[];
-    total: number;
-  };
-}
-
 interface PayrollRunSummaryResponse {
   success: boolean;
   data: PayrollRunSummary;
@@ -98,8 +90,6 @@ function getNetworkPassphrase(): string {
   const network = (import.meta.env.PUBLIC_STELLAR_NETWORK as string | undefined)?.toUpperCase();
   return network === 'MAINNET' ? Networks.PUBLIC : Networks.TESTNET;
 }
-
-
 
 function getReadMethodName(key: 'batch' | 'payment' | 'retry'): string {
   if (key === 'batch') {
@@ -301,12 +291,12 @@ export async function fetchPayrollRuns(
   page = 1,
   limit = 20
 ): Promise<{ data: PayrollRunRecord[]; total: number }> {
-  const response = await axiosInstance.get<{ success: boolean; data: { data: PayrollRunRecord[]; total: number } }>(
-    `/api/v1/payroll-bonus/runs`,
-    {
-      params: { page, limit },
-    }
-  );
+  const response = await axiosInstance.get<{
+    success: boolean;
+    data: { data: PayrollRunRecord[]; total: number };
+  }>(`/api/v1/payroll-bonus/runs`, {
+    params: { page, limit },
+  });
 
   return response.data.data;
 }

@@ -6,6 +6,11 @@ vi.mock('../Avatar', () => ({
   Avatar: ({ name }: { name: string }) => <div data-testid="avatar">{name}</div>,
 }));
 vi.mock('../AvatarUpload', () => ({ AvatarUpload: () => null }));
+vi.mock('../../hooks/useNotification', () => ({
+  useNotification: () => ({
+    notifySuccess: vi.fn(),
+  }),
+}));
 vi.mock('../CSVUploader', () => ({ CSVUploader: () => null }));
 vi.mock('../EmployeeRemovalConfirmModal', () => ({
   EmployeeRemovalConfirmModal: () => null,

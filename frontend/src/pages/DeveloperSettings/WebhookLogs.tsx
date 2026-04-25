@@ -1,28 +1,36 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { 
-  Activity, 
-  RefreshCcw, 
-  CheckCircle2, 
-  XCircle, 
-  Clock, 
-  ChevronRight, 
+import {
+  Activity,
+  RefreshCcw,
+  CheckCircle2,
+  XCircle,
+  Clock,
+  ChevronRight,
   Terminal,
   Filter,
   Search,
   ExternalLink,
-  Code2
+  Code2,
 } from 'lucide-react';
 import { Button } from '@stellar/design-system';
 import axiosInstance from '../../api/axiosInstance';
 import { toast } from 'sonner';
 
+type JsonRecord = Record<string, unknown>;
+
+interface WebhookLogsResponse {
+  data?: WebhookLog[];
+}
+
+const LOADING_ROW_KEYS = ['one', 'two', 'three', 'four', 'five'] as const;
+
 interface WebhookLog {
   id: number;
   subscriptionId: number;
   eventType: string;
-  payload: any;
-  requestHeaders: any;
+  payload: JsonRecord | string | null;
+  requestHeaders: JsonRecord | null;
   responseStatusCode: number | null;
   responseBody: string | null;
   errorMessage: string | null;
@@ -38,10 +46,10 @@ const WebhookLogs: React.FC = () => {
   const [selectedLog, setSelectedLog] = useState<WebhookLog | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const fetchLogs = async () => {
+  const fetchLogs = useCallback(async () => {
     try {
       setIsRefreshing(true);
-      const response = await axiosInstance.get('/api/webhooks/logs');
+      const response = await axiosInstance.get<WebhookLogsResponse>('/api/webhooks/logs');
       setLogs(response.data.data || []);
     } catch (error) {
       console.error('Failed to fetch webhook logs:', error);
@@ -50,13 +58,15 @@ const WebhookLogs: React.FC = () => {
       setLoading(false);
       setIsRefreshing(false);
     }
-  };
+  }, [t]);
 
   useEffect(() => {
-    fetchLogs();
-    const interval = setInterval(fetchLogs, 30000); // Auto refresh every 30s
+    void fetchLogs();
+    const interval = setInterval(() => {
+      void fetchLogs();
+    }, 30000); // Auto refresh every 30s
     return () => clearInterval(interval);
-  }, []);
+  }, [fetchLogs]);
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -91,10 +101,10 @@ const WebhookLogs: React.FC = () => {
     }
   };
 
-  const formatJSON = (data: any) => {
+  const formatJSON = (data: unknown) => {
     try {
       return JSON.stringify(typeof data === 'string' ? JSON.parse(data) : data, null, 2);
-    } catch (e) {
+    } catch {
       return String(data);
     }
   };
@@ -109,13 +119,18 @@ const WebhookLogs: React.FC = () => {
             {t('webhooks.logs.title', 'Webhook Delivery Logs')}
           </h1>
           <p className="text-slate-400 mt-1">
-            {t('webhooks.logs.subtitle', 'Monitor and debug event deliveries to your configured endpoints.')}
+            {t(
+              'webhooks.logs.subtitle',
+              'Monitor and debug event deliveries to your configured endpoints.'
+            )}
           </p>
         </div>
         <div className="flex items-center gap-2">
           <Button
             variant="secondary"
-            onClick={fetchLogs}
+            onClick={() => {
+              void fetchLogs();
+            }}
             disabled={isRefreshing}
             className="flex items-center gap-2"
           >
@@ -131,7 +146,10 @@ const WebhookLogs: React.FC = () => {
           <div className="card !p-0 overflow-hidden">
             <div className="p-4 border-b border-white/5 bg-white/2 flex items-center justify-between">
               <div className="relative flex-1 max-w-sm">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
+                <Search
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500"
+                  size={16}
+                />
                 <input
                   type="text"
                   placeholder="Filter by event or ID..."
@@ -156,8 +174,8 @@ const WebhookLogs: React.FC = () => {
                 </thead>
                 <tbody className="divide-y divide-white/5">
                   {loading ? (
-                    Array.from({ length: 5 }).map((_, i) => (
-                      <tr key={i} className="animate-pulse">
+                    LOADING_ROW_KEYS.map((key) => (
+                      <tr key={`loading-row-${key}`} className="animate-pulse">
                         <td colSpan={4} className="px-6 py-8 h-16 bg-white/[0.01]" />
                       </tr>
                     ))
@@ -178,7 +196,9 @@ const WebhookLogs: React.FC = () => {
                       >
                         <td className="px-6 py-4">
                           <div className="font-medium text-slate-200">{log.eventType}</div>
-                          <div className="text-xs text-slate-500 font-mono">#{log.id.toString().slice(-8)}</div>
+                          <div className="text-xs text-slate-500 font-mono">
+                            #{log.id.toString().slice(-8)}
+                          </div>
                         </td>
                         <td className="px-6 py-4 text-center">
                           {getStatusBadge(log.status)}
@@ -218,12 +238,18 @@ const WebhookLogs: React.FC = () => {
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="p-3 bg-white/2 rounded-lg border border-white/5 text-center">
-                    <p className="text-[10px] uppercase tracking-wider text-slate-500 mb-1">Attempt</p>
+                    <p className="text-[10px] uppercase tracking-wider text-slate-500 mb-1">
+                      Attempt
+                    </p>
                     <p className="text-lg font-bold font-mono">#{selectedLog.attemptNumber}</p>
                   </div>
                   <div className="p-3 bg-white/2 rounded-lg border border-white/5 text-center">
-                    <p className="text-[10px] uppercase tracking-wider text-slate-500 mb-1">Status</p>
-                    <div className="flex justify-center mt-1">{getStatusBadge(selectedLog.status)}</div>
+                    <p className="text-[10px] uppercase tracking-wider text-slate-500 mb-1">
+                      Status
+                    </p>
+                    <div className="flex justify-center mt-1">
+                      {getStatusBadge(selectedLog.status)}
+                    </div>
                   </div>
                 </div>
 
@@ -258,7 +284,7 @@ const WebhookLogs: React.FC = () => {
               </div>
 
               <div className="pt-4 border-t border-white/5">
-                <Button fullWidth variant="secondary" onClick={() => setSelectedLog(null)}>
+                <Button isFullWidth variant="secondary" onClick={() => setSelectedLog(null)}>
                   Close Details
                 </Button>
               </div>
@@ -283,7 +309,7 @@ const WebhookLogs: React.FC = () => {
             <p className="text-xs text-slate-400">
               Manually trigger a test event to verify your endpoint configuration.
             </p>
-            <Button fullWidth variant="primary" size="sm" className="glow-mint">
+            <Button isFullWidth variant="primary" size="sm" className="glow-mint">
               Send Test Ping
             </Button>
           </div>

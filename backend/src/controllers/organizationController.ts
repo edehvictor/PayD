@@ -11,6 +11,18 @@ import { z } from 'zod';
 import { pool } from '../config/database.js';
 import { orgAuditService } from '../services/orgAuditService.js';
 import { apiErrorResponse, ErrorCodes } from '../utils/apiError.js';
+import { getRedisClient } from '../services/rateLimitService.js';
+
+const ORG_CACHE_TTL = 300; // 5 minutes
+
+function orgCacheKey(organizationId: number | string): string {
+  return `org:settings:${organizationId}`;
+}
+
+async function invalidateOrgCache(organizationId: number | string): Promise<void> {
+  const redis = getRedisClient();
+  if (redis) await redis.del(orgCacheKey(organizationId));
+}
 
 // ─── Validation Schemas ───────────────────────────────────────────────────────
 
@@ -40,6 +52,16 @@ export const OrganizationController = {
     }
 
     try {
+      const redis = getRedisClient();
+      const cacheKey = orgCacheKey(organizationId);
+
+      if (redis) {
+        const cached = await redis.get(cacheKey);
+        if (cached) {
+          return res.status(200).json({ success: true, data: JSON.parse(cached) });
+        }
+      }
+
       const result = await pool.query<{
         id: number;
         name: string;
@@ -53,6 +75,8 @@ export const OrganizationController = {
       if (result.rows.length === 0) {
         return res.status(404).json(apiErrorResponse(ErrorCodes.NOT_FOUND, 'Organization not found'));
       }
+
+      if (redis) await redis.setex(cacheKey, ORG_CACHE_TTL, JSON.stringify(result.rows[0]));
 
       return res.status(200).json({ success: true, data: result.rows[0] });
     } catch (err) {
@@ -108,6 +132,8 @@ export const OrganizationController = {
         actorEmail: req.user?.email ?? undefined,
         actorIp: req.ip,
       });
+
+      void invalidateOrgCache(organizationId);
 
       return res.status(200).json({ success: true, data: result.rows[0] });
     } catch (err) {
@@ -167,6 +193,8 @@ export const OrganizationController = {
         actorEmail: req.user?.email ?? undefined,
         actorIp: req.ip,
       });
+
+      void invalidateOrgCache(organizationId);
 
       return res.status(200).json({ success: true, data: result.rows[0] });
     } catch (err) {
