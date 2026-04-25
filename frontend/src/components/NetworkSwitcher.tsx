@@ -19,17 +19,17 @@ export const NetworkSwitcher: React.FC = () => {
         title="Switch Stellar network"
         className={[
           'text-[10px] font-mono font-bold uppercase tracking-widest',
-          'px-2 py-1 rounded border bg-transparent cursor-pointer',
-          'focus:outline-none transition-colors',
+          'px-2 py-1 rounded border bg-surface border-hi text-text cursor-pointer',
+          'focus:outline-none transition-colors appearance-none',
           isTestnet
             ? 'border-yellow-500/50 text-yellow-500 hover:border-yellow-400'
-            : 'border-(--accent)/50 text-(--accent) hover:border-(--accent)',
+            : 'border-accent/50 text-accent hover:border-accent',
         ].join(' ')}
       >
-        <option value="TESTNET" className="bg-(--bg) text-(--text)">
+        <option value="TESTNET" className="bg-surface text-text">
           Testnet
         </option>
-        <option value="MAINNET" className="bg-(--bg) text-(--text)">
+        <option value="MAINNET" className="bg-surface text-text">
           Mainnet
         </option>
       </select>
