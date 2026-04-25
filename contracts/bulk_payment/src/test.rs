@@ -1697,3 +1697,47 @@ fn test_ledger_replay_partial_panics_same_ledger() {
     // Same ledger — should panic
     client.execute_batch_partial(&sender, &token, &payments, &1);
 }
+ 
+// ── PART 23 REGRESSION TESTS ──────────────────────────────────────────────────
+ 
+#[test]
+fn test_payment_entry_storage_v2_success() {
+    let (env, sender, token, client) = setup_with_ledger(100);
+    let mut payments: Vec<PaymentOp> = Vec::new(&env);
+    payments.push_back(PaymentOp {
+        recipient: Address::generate(&env),
+        amount: 500,
+        category: soroban_sdk::symbol_short!("payroll"),
+    });
+
+    let batch_id = client.execute_batch_v2(&sender, &token, &payments, &0, &true);
+    let entry = client.get_payment_entry(&batch_id, &0);
+    assert_eq!(entry.amount, 500);
+    assert_eq!(entry.status, PaymentStatus::Sent);
+}
+
+#[test]
+fn test_refund_failed_payment_temporary_storage() {
+    let (env, sender, token, client) = setup_with_ledger(200);
+    let mut payments: Vec<PaymentOp> = Vec::new(&env);
+    // Add one invalid payment (amount = 0)
+    payments.push_back(PaymentOp {
+        recipient: Address::generate(&env),
+        amount: 0, 
+        category: soroban_sdk::symbol_short!("payroll"),
+    });
+
+    // Execute partial batch (all_or_nothing = false)
+    let batch_id = client.execute_batch_v2(&sender, &token, &payments, &0, &false);
+    
+    // Status should be Failed
+    let entry = client.get_payment_entry(&batch_id, &0);
+    assert_eq!(entry.status, PaymentStatus::Failed);
+
+    // Refund it
+    client.refund_failed_payment(&batch_id, &0);
+
+    // Status should now be Refunded
+    let updated_entry = client.get_payment_entry(&batch_id, &0);
+    assert_eq!(updated_entry.status, PaymentStatus::Refunded);
+}

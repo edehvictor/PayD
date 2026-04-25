@@ -404,6 +404,8 @@ impl BulkPaymentContract {
             success_count += 1;
         }
 
+        Self::check_limits(&env, &sender, total)?;
+
         let token_client = token::Client::new(&env, &token);
         let current_contract = env.current_contract_address();
         
@@ -470,6 +472,8 @@ impl BulkPaymentContract {
             total = total.checked_add(op.amount).ok_or(ContractError::AmountOverflow)?;
             success_count += 1;
         }
+
+        Self::check_limits(&env, &sender, total)?;
 
         let token_client = token::Client::new(&env, &token);
         let contract_addr = env.current_contract_address();
@@ -608,7 +612,7 @@ impl BulkPaymentContract {
 
         // Load the individual payment entry.
         let entry_key = DataKey::PaymentEntry(batch_id, payment_index);
-        let mut entry: PaymentEntry = env.storage().persistent().get(&entry_key)
+        let mut entry: PaymentEntry = env.storage().temporary().get(&entry_key)
             .ok_or(ContractError::PaymentNotFound)?;
 
         // Guard: status must be Failed — Refunded and Sent/Pending are errors.
@@ -628,9 +632,9 @@ impl BulkPaymentContract {
 
         // Transition status to Refunded and persist.
         entry.status = PaymentStatus::Refunded;
-        env.storage().persistent().set(&entry_key, &entry);
-        env.storage().persistent().extend_ttl(
-            &entry_key, PERSISTENT_TTL_THRESHOLD, PERSISTENT_TTL_EXTEND_TO,
+        env.storage().temporary().set(&entry_key, &entry);
+        env.storage().temporary().extend_ttl(
+            &entry_key, TEMPORARY_TTL_THRESHOLD, TEMPORARY_TTL_EXTEND_TO,
         );
 
         env.events().publish(
@@ -648,7 +652,7 @@ impl BulkPaymentContract {
         payment_index: u32,
     ) -> Result<PaymentEntry, ContractError> {
         let key = DataKey::PaymentEntry(batch_id, payment_index);
-        let entry: PaymentEntry = env.storage().persistent().get(&key)
+        let entry: PaymentEntry = env.storage().temporary().get(&key)
             .ok_or(ContractError::PaymentNotFound)?;
         // Reading state should not modify TTL; extend only on write
         Ok(entry)
@@ -892,14 +896,14 @@ impl BulkPaymentContract {
         status: PaymentStatus,
     ) {
         let key = DataKey::PaymentEntry(batch_id, payment_index);
-        env.storage().persistent().set(&key, &PaymentEntry {
+        env.storage().temporary().set(&key, &PaymentEntry {
             recipient: op.recipient.clone(),
             amount:    op.amount,
             category:  op.category.clone(),
             status,
         });
-        env.storage().persistent().extend_ttl(
-            &key, PERSISTENT_TTL_THRESHOLD, PERSISTENT_TTL_EXTEND_TO,
+        env.storage().temporary().extend_ttl(
+            &key, TEMPORARY_TTL_THRESHOLD, TEMPORARY_TTL_EXTEND_TO,
         );
     }
 
