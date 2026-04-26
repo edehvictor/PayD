@@ -264,7 +264,7 @@ async function runMigrations(isDryRun: boolean): Promise<RunResult> {
         // File already applied — check for content drift (tampering detection).
         if (record.checksum !== file.checksum) {
           const msg =
-            `[migrate] DRIFT DETECTED: "${file.filename}" was previously ` +
+            `[migrate] DRIFT DETECTED: "${file.filename}" at "${file.absolutePath}" was previously ` +
             `applied with checksum ${record.checksum} but the file now has ` +
             `checksum ${file.checksum}. ` +
             `Aborting to protect database integrity.`;
