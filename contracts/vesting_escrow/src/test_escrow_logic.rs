@@ -172,12 +172,12 @@ fn test_linear_vesting_calculation() {
     let start = e.ledger().timestamp();
     
     // Test various points in vesting schedule
-    let test_cases = vec![
-        (0, 0),       // Start: 0%
-        (100, 1_000), // 10%
-        (250, 2_500), // 25%
-        (500, 5_000), // 50%
-        (750, 7_500), // 75%
+    let test_cases: [(u64, i128); 7] = [
+        (0, 0),         // Start: 0%
+        (100, 1_000),   // 10%
+        (250, 2_500),   // 25%
+        (500, 5_000),   // 50%
+        (750, 7_500),   // 75%
         (1000, 10_000), // 100%
         (1500, 10_000), // Past end: capped at 100%
     ];
@@ -297,19 +297,19 @@ fn test_multiple_small_claims() {
     init_escrow(&client, &e, &funder, &beneficiary, &token_contract, &clawback_admin, 10_000, 0, 1000);
     
     let start = e.ledger().timestamp();
-    let mut total_claimed = 0;
-    
+    let mut total_claimed: i128 = 0;
+
     // Claim every 10% increment
-    for i in 1..=10 {
+    for i in 1u64..=10 {
         e.ledger().set_timestamp(start + (i * 100));
         e.ledger().set_sequence_number(i as u32 * 10);
         client.claim();
-        
-        let expected_total = i * 1_000;
+
+        let expected_total: i128 = (i as i128) * 1_000;
         assert_eq!(token_client.balance(&beneficiary), expected_total);
         total_claimed = expected_total;
     }
-    
+
     assert_eq!(total_claimed, 10_000);
 }
 
@@ -493,9 +493,11 @@ fn test_escrow_balance_equals_unclaimed_vested() {
     let vested = client.get_vested_amount();
     let contract_balance = token_client.balance(&contract_address);
     
-    // Contract balance = total_amount - claimed_amount
+    // Contract holds all tokens not yet claimed (vested + unvested)
     assert_eq!(contract_balance, config.total_amount - config.claimed_amount);
-    assert_eq!(contract_balance, vested - config.claimed_amount);
+    // Claimable right now is only the vested portion minus what was already claimed
+    let claimable = vested - config.claimed_amount;
+    assert_eq!(claimable, 4_000);
 }
 
 #[test]

@@ -642,3 +642,50 @@ fn test_contract_metadata() {
     assert_eq!(version, soroban_sdk::String::from_str(&e, env!("CARGO_PKG_VERSION")));
     assert_eq!(author, soroban_sdk::String::from_str(&e, env!("CARGO_PKG_AUTHORS")));
 }
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ── BENEFICIARY TRANSFER TESTS ───────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn test_transfer_beneficiary_updates_config() {
+    let (e, funder, beneficiary, clawback_admin, token_contract, _, _, client) = setup();
+    init_default(&client, &e, &funder, &beneficiary, &token_contract, &clawback_admin);
+
+    let new_beneficiary = Address::generate(&e);
+    client.transfer_beneficiary(&new_beneficiary);
+
+    let config = client.get_config();
+    assert_eq!(config.beneficiary, new_beneficiary);
+}
+
+#[test]
+fn test_transferred_beneficiary_can_claim() {
+    let (e, funder, beneficiary, clawback_admin, token_contract, token_client, _, client) = setup();
+    init_default(&client, &e, &funder, &beneficiary, &token_contract, &clawback_admin);
+
+    let new_beneficiary = Address::generate(&e);
+    client.transfer_beneficiary(&new_beneficiary);
+
+    // Advance past cliff and partial duration so tokens are vested
+    e.ledger().with_mut(|l| l.timestamp += 500);
+
+    client.claim();
+
+    // New beneficiary received tokens; old beneficiary received nothing
+    assert!(token_client.balance(&new_beneficiary) > 0);
+    assert_eq!(token_client.balance(&beneficiary), 0);
+}
+
+#[test]
+#[should_panic(expected = "Vesting grant is no longer active")]
+fn test_transfer_beneficiary_panics_when_inactive() {
+    let (e, funder, beneficiary, clawback_admin, token_contract, _, _, client) = setup();
+    init_default(&client, &e, &funder, &beneficiary, &token_contract, &clawback_admin);
+
+    // Clawback deactivates the grant
+    client.clawback();
+
+    let new_beneficiary = Address::generate(&e);
+    client.transfer_beneficiary(&new_beneficiary);
+}
