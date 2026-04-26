@@ -53,6 +53,13 @@ pub struct ClawbackExecutedEvent {
     pub vested_remaining: i128,
 }
 
+/// Emitted when the beneficiary address is transferred to a new account.
+#[contractevent]
+pub struct BeneficiaryTransferredEvent {
+    pub old_beneficiary: Address,
+    pub new_beneficiary: Address,
+}
+
 const PERSISTENT_TTL_THRESHOLD: u32 = 20_000;
 const PERSISTENT_TTL_EXTEND_TO: u32 = 120_000;
 
@@ -223,6 +230,34 @@ impl VestingContract {
         config
     }
 
+    /// Transfers the vesting grant to a new beneficiary address. Only the
+    /// `clawback_admin` may call this (e.g. to handle account migration).
+    /// The new beneficiary inherits all unclaimed vested and future tokens.
+    pub fn transfer_beneficiary(e: Env, new_beneficiary: Address) {
+        let mut config: VestingConfig = e
+            .storage()
+            .persistent()
+            .get(&DataKey::Config)
+            .expect("Config entry unavailable; restore and retry");
+
+        config.clawback_admin.require_auth();
+
+        if !config.is_active {
+            panic!("Vesting grant is no longer active");
+        }
+
+        let old_beneficiary = config.beneficiary.clone();
+        config.beneficiary = new_beneficiary.clone();
+        e.storage().persistent().set(&DataKey::Config, &config);
+        Self::bump_config_ttl(&e);
+
+        BeneficiaryTransferredEvent {
+            old_beneficiary,
+            new_beneficiary,
+        }
+        .publish(&e);
+    }
+
     /// Extends TTL for the vesting configuration entry.
     pub fn bump_ttl(e: Env) {
         let config: VestingConfig = e.storage().persistent().get(&DataKey::Config).expect("Config entry unavailable; restore and retry");
@@ -241,16 +276,17 @@ impl VestingContract {
             return config.total_amount;
         }
         
-        // Linear vesting
+        // Linear vesting — overflow-safe: divide total by duration first,
+        // then scale by elapsed to avoid intermediate multiplication overflow.
         let time_elapsed = now - config.start_time;
-        
-        // vested = total * elapsed / duration
-        // We use i128 for calculation to avoid overflow
-        let total = config.total_amount;
-        let elapsed = time_elapsed as i128;
+        let total    = config.total_amount;
+        let elapsed  = time_elapsed as i128;
         let duration = config.duration_seconds as i128;
-        
-        total.checked_mul(elapsed).unwrap().checked_div(duration).unwrap()
+
+        // vested = (total / duration) * elapsed + (total % duration) * elapsed / duration
+        let per_unit = total / duration;
+        let remainder = total % duration;
+        per_unit * elapsed + (remainder * elapsed) / duration
     }
 
     /// Returns the ledger sequence of the last successful claim.
