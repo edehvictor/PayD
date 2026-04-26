@@ -32,7 +32,7 @@ Traditional international payroll faces significant challenges:
 | Lack of proof                  | Difficult to verify payment delivery    |
 | Contractor/freelancer payments | Many unbanked or prefer digital methods |
 
-## 💡 Core Concept
+## 💡 Core Concepts
 
 Instead of routing through expensive banking infrastructure:
 
