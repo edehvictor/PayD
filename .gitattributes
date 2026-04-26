@@ -1,10 +1,8 @@
-* text=auto eol=lf
+Cargo.lock text -merge eol=lf linguist-generated=true -diff
+package-lock.json linguist-generated=true -diff
+
+# Enforce LF line endings for all SQL migration files.
+# This prevents CRLF↔LF drift caused by git's core.autocrlf on Windows,
+# which silently changes the SHA-256 checksum of migration files and triggers
+# "DRIFT DETECTED" failures in the migration runner.
 *.sql text eol=lf
-*.sh text eol=lf
-*.ts text eol=lf
-*.tsx text eol=lf
-*.json text eol=lf
-*.md text eol=lf
-*.toml text eol=lf
-*.yml text eol=lf
-*.yaml text eol=lf

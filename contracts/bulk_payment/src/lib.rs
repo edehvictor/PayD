@@ -25,15 +25,23 @@ pub enum ContractError {
     MonthlyLimitExceeded = 12,
     InvalidLimitConfig   = 13,
     /// Payment is not in a Failed state, so no refund is available.
-    RefundNotAvailable   = 14,
+    RefundNotAvailable       = 14,
     /// Payment has already been refunded; cannot refund twice.
-    AlreadyRefunded      = 15,
+    AlreadyRefunded          = 15,
     /// No PaymentEntry found for the given (batch_id, payment_index).
-    PaymentNotFound      = 16,
+    PaymentNotFound          = 16,
     /// Contract is paused — all payment operations are suspended.
-    ContractPaused       = 17,
+    ContractPaused           = 17,
     /// Sender already executed a batch in this ledger sequence.
-    LedgerReplayDetected = 18,
+    LedgerReplayDetected     = 18,
+    /// Scheduled batch does not exist or has expired.
+    ScheduledBatchNotFound   = 19,
+    /// Scheduled batch cannot be executed yet — target ledger not reached.
+    ScheduledBatchNotReady   = 20,
+    /// Scheduled batch has already been executed or cancelled.
+    ScheduledBatchConsumed   = 21,
+    /// Only the original sender may cancel a scheduled batch.
+    ScheduledBatchUnauthorized = 22,
 }
 
 // ── Events ────────────────────────────────────────────────────────────────────
@@ -89,6 +97,29 @@ pub struct RefundIssuedEvent {
 pub struct ContractStatusChangedEvent {
     pub paused:   bool,
     pub admin:    Address,
+}
+
+/// Emitted when a batch is scheduled for future execution.
+#[contractevent]
+pub struct BatchScheduledEvent {
+    pub scheduled_id:        u64,
+    pub sender:              Address,
+    pub execute_after_ledger: u32,
+}
+
+/// Emitted when a scheduled batch is executed.
+#[contractevent]
+pub struct ScheduledBatchExecutedEvent {
+    pub scheduled_id: u64,
+    pub batch_id:     u64,
+    pub total_sent:   i128,
+}
+
+/// Emitted when a scheduled batch is cancelled by its sender.
+#[contractevent]
+pub struct ScheduledBatchCancelledEvent {
+    pub scheduled_id: u64,
+    pub sender:       Address,
 }
 
 /// Emitted when an all-or-nothing batch completes successfully.
@@ -161,13 +192,13 @@ pub enum LimitTier {
 
 /// Per-payment lifecycle status used by `execute_batch_v2`.
 ///
-/// State machine:
-///   Pending → Sent     (payment executed successfully in partial mode)
-///   Pending → Failed   (payment skipped; funds held in contract for refund)
-///   Failed  → Refunded (`refund_failed_payment` called successfully)
-///
-/// In `all_or_nothing = true` mode all entries are written directly as `Sent`
-/// (the function reverts before writing anything if any amount is invalid).
+/// ### State Machine
+/// 1. **Pending**: Initial state before any execution (internal to input).
+/// 2. **Sent**: Successfully executed payment where funds moved from sender to recipient.
+/// 3. **Failed**: Payment skipped due to invalid amount or insufficient funds. 
+///    The proportional funds are held in the contract account.
+/// 4. **Refunded**: A previously `Failed` payment whose funds have been returned 
+///    to the original sender via `refund_failed_payment`.
 #[contracttype]
 #[derive(Copy, Clone, Debug, PartialEq)]
 #[repr(u32)]
@@ -189,6 +220,27 @@ pub struct PaymentEntry {
     pub status:    PaymentStatus,
 }
 
+/// Status of a scheduled batch.
+#[contracttype]
+#[derive(Copy, Clone, Debug, PartialEq)]
+#[repr(u32)]
+pub enum ScheduledBatchStatus {
+    Pending   = 0,
+    Executed  = 1,
+    Cancelled = 2,
+}
+
+/// A batch queued for future execution.
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct ScheduledBatch {
+    pub sender:               Address,
+    pub token:                Address,
+    pub payments:             Vec<PaymentOp>,
+    pub execute_after_ledger: u32,
+    pub status:               ScheduledBatchStatus,
+}
+
 #[contracttype]
 pub enum DataKey {
     Admin,
@@ -208,6 +260,10 @@ pub enum DataKey {
     Paused,
     /// Tracks the last ledger sequence in which a batch was executed (per sender).
     LastBatchLedger(Address),
+    /// Scheduled batch record
+    ScheduledBatch(u64),
+    /// Counter for scheduled batches
+    ScheduledBatchCount,
 }
 
 const MAX_BATCH_SIZE: u32 = 100;
@@ -396,13 +452,15 @@ impl BulkPaymentContract {
 
         let mut total: i128 = 0;
         let mut success_count: u32 = 0;
-        
+
         // Use a single loop to calculate total and validate (O(n))
         for op in payments.iter() {
             if op.amount <= 0 { return Err(ContractError::InvalidAmount); }
             total = total.checked_add(op.amount).ok_or(ContractError::AmountOverflow)?;
             success_count += 1;
         }
+
+        Self::check_limits(&env, &sender, total)?;
 
         let token_client = token::Client::new(&env, &token);
         let current_contract = env.current_contract_address();
@@ -459,17 +517,19 @@ impl BulkPaymentContract {
 
         let mut total: i128 = 0;
         let mut success_count: u32 = 0;
-        
+
         // Use a single loop to calculate total and validate (O(n))
         // This is more efficient than looping twice
         for op in payments.iter() {
-            if op.amount <= 0 { 
-                // Invalid amount — skip it and mark fail 
+            if op.amount <= 0 {
+                // Invalid amount — skip it and mark fail
                 continue;
             }
             total = total.checked_add(op.amount).ok_or(ContractError::AmountOverflow)?;
             success_count += 1;
         }
+
+        Self::check_limits(&env, &sender, total)?;
 
         let token_client = token::Client::new(&env, &token);
         let contract_addr = env.current_contract_address();
@@ -527,23 +587,28 @@ impl BulkPaymentContract {
 
     /// Unified batch entry point with a runtime `all_or_nothing` flag.
     ///
-    /// ### `all_or_nothing = true`  
-    /// Identical semantics to `execute_batch`: every amount is validated before
-    /// any funds move. Any invalid amount reverts the entire call. On success,
-    /// each payment is recorded as `PaymentStatus::Sent` for auditability.
+    /// This function serves as the primary entry point for batch payments, supporting 
+    /// two distinct modes of execution to balance strict atomicity with resilience.
     ///
-    /// ### `all_or_nothing = false`  
-    /// Partial-success mode with per-payment state tracking and a manual refund
-    /// path:
-    /// - Valid payments execute immediately (contract → recipient).
-    /// - Invalid payments (`amount ≤ 0`) are recorded as `PaymentStatus::Failed`
-    ///   and their proportional funds are **held inside the contract**.
-    /// - The caller — or anyone on their behalf — may later call
-    ///   `refund_failed_payment(batch_id, payment_index)` to return held funds
-    ///   to the original sender.
+    /// ### `all_or_nothing = true` (Strict Mode)
+    /// - **Atomicity**: The entire batch succeeds or the entire call reverts.
+    /// - **Validation**: Every payment amount is validated (must be > 0) before 
+    ///   any funds move.
+    /// - **Transfer**: Funds move directly from `sender` to each `recipient`.
+    /// - **Auditability**: On success, each payment is recorded as `Sent`.
     ///
-    /// In both modes every payment gets a `PaymentEntry` that can be queried
-    /// with `get_payment_entry`.
+    /// ### `all_or_nothing = false` (Resilient/Partial Mode)
+    /// - **Best-effort**: Valid payments execute immediately; invalid ones are skipped.
+    /// - **Escrow Mechanism**: Funds for the entire batch (sum of positive amounts) 
+    ///   are first pulled into the contract.
+    /// - **State Tracking**: 
+    ///     - Successful transfers are marked `Sent`.
+    ///     - Failed transfers (e.g. invalid amount) are marked `Failed`.
+    /// - **Manual Recovery**: Funds associated with `Failed` entries remain in the 
+    ///   contract and must be retrieved using `refund_failed_payment`.
+    ///
+    /// In both modes, every individual payment generates a `PaymentEntry` for 
+    /// granular status querying via `get_payment_entry`.
     pub fn execute_batch_v2(
         env: Env,
         sender: Address,
@@ -572,8 +637,17 @@ impl BulkPaymentContract {
     /// Refund a single `Failed` payment from an `execute_batch_v2` partial
     /// batch back to the original batch sender.
     ///
-    /// The refund destination is always `BatchRecord.sender`; the caller
-    /// cannot redirect it, so no additional `require_auth` is needed.
+    /// This function implements a secure recovery path for funds that were 
+    /// earmarked for a payment that failed validation. 
+    ///
+    /// ### Security Model
+    /// - **Fixed Destination**: Funds are *always* returned to `BatchRecord.sender`.
+    /// - **No Authorization Required**: Since the destination is fixed to the 
+    ///   original funder, anyone can trigger the refund (e.g. a maintenance bot) 
+    ///   without risking fund diversion.
+    ///
+    /// ### State Transition
+    /// `Failed` → `Refunded` (Prevents double-refunding).
     ///
     /// ### Errors
     /// | Code | Meaning |
@@ -589,7 +663,7 @@ impl BulkPaymentContract {
     ) -> Result<(), ContractError> {
         // Resolve sender and token from the batch record.
         let batch_key = DataKey::Batch(batch_id);
-        let batch: BatchRecord = env.storage().temporary().get(&batch_key)
+        let batch: BatchRecord = env.storage().persistent().get(&batch_key)
             .ok_or(ContractError::BatchNotFound)?;
 
         // Load the individual payment entry.
@@ -625,6 +699,177 @@ impl BulkPaymentContract {
         );
 
         Ok(())
+    }
+
+    // ── Scheduled batch execution (Issue #187 / Part 42) ─────────────────
+
+    /// Schedules a batch payment to be executed no earlier than
+    /// `execute_after_ledger`. Funds are pulled from the sender at schedule
+    /// time and held by the contract until execution or cancellation.
+    ///
+    /// ### Security
+    /// - Only the sender can cancel the scheduled batch and reclaim held funds.
+    /// - Execution is open to anyone once the ledger condition is met (e.g. a
+    ///   keeper or the sender themselves), ensuring liveness.
+    pub fn schedule_batch(
+        env: Env,
+        sender: Address,
+        token: Address,
+        payments: Vec<PaymentOp>,
+        execute_after_ledger: u32,
+    ) -> Result<u64, ContractError> {
+        Self::require_not_paused(&env)?;
+        sender.require_auth();
+        Self::bump_core_ttl(&env);
+
+        let len = payments.len();
+        if len == 0 { return Err(ContractError::EmptyBatch); }
+        if len > MAX_BATCH_SIZE { return Err(ContractError::BatchTooLarge); }
+
+        let mut total: i128 = 0;
+        for op in payments.iter() {
+            if op.amount <= 0 { return Err(ContractError::InvalidAmount); }
+            total = total.checked_add(op.amount).ok_or(ContractError::AmountOverflow)?;
+        }
+
+        Self::check_limits(&env, &sender, total)?;
+
+        // Pull funds into the contract now so execution requires no sender auth later
+        let token_client = token::Client::new(&env, &token);
+        token_client.transfer(&sender, &env.current_contract_address(), &total);
+
+        let count: u64 = env.storage().persistent()
+            .get(&DataKey::ScheduledBatchCount)
+            .unwrap_or(0) + 1;
+        env.storage().persistent().set(&DataKey::ScheduledBatchCount, &count);
+        env.storage().persistent().extend_ttl(
+            &DataKey::ScheduledBatchCount, PERSISTENT_TTL_THRESHOLD, PERSISTENT_TTL_EXTEND_TO,
+        );
+
+        let scheduled = ScheduledBatch {
+            sender: sender.clone(),
+            token,
+            payments,
+            execute_after_ledger,
+            status: ScheduledBatchStatus::Pending,
+        };
+
+        let key = DataKey::ScheduledBatch(count);
+        env.storage().persistent().set(&key, &scheduled);
+        env.storage().persistent().extend_ttl(&key, PERSISTENT_TTL_THRESHOLD, PERSISTENT_TTL_EXTEND_TO);
+
+        BatchScheduledEvent { scheduled_id: count, sender, execute_after_ledger }.publish(&env);
+        Ok(count)
+    }
+
+    /// Executes a previously scheduled batch once the target ledger has been
+    /// reached. Funds were already pulled at schedule time and are distributed
+    /// from the contract's balance. Open to any caller once the ledger condition
+    /// is satisfied.
+    pub fn execute_scheduled_batch(
+        env: Env,
+        scheduled_id: u64,
+    ) -> Result<u64, ContractError> {
+        Self::require_not_paused(&env)?;
+        Self::bump_core_ttl(&env);
+
+        let key = DataKey::ScheduledBatch(scheduled_id);
+        let mut scheduled: ScheduledBatch = env.storage().persistent()
+            .get(&key)
+            .ok_or(ContractError::ScheduledBatchNotFound)?;
+
+        if scheduled.status != ScheduledBatchStatus::Pending {
+            return Err(ContractError::ScheduledBatchConsumed);
+        }
+
+        let current_ledger = env.ledger().sequence();
+        if current_ledger < scheduled.execute_after_ledger {
+            return Err(ContractError::ScheduledBatchNotReady);
+        }
+
+        let mut total: i128 = 0;
+        for op in scheduled.payments.iter() {
+            total = total.checked_add(op.amount).ok_or(ContractError::AmountOverflow)?;
+        }
+
+        let token_client = token::Client::new(&env, &scheduled.token);
+        let contract_addr = env.current_contract_address();
+
+        // Funds are already held by the contract — distribute to recipients
+        for op in scheduled.payments.iter() {
+            token_client.transfer(&contract_addr, &op.recipient, &op.amount);
+        }
+
+        Self::record_usage(&env, &scheduled.sender, total);
+
+        let batch_id = Self::next_batch_id(&env);
+        let success_count = scheduled.payments.len();
+        env.storage().persistent().set(&DataKey::Batch(batch_id), &BatchRecord {
+            sender:        scheduled.sender.clone(),
+            token:         scheduled.token.clone(),
+            total_sent:    total,
+            success_count,
+            fail_count:    0,
+            status:        symbol_short!("completed"),
+        });
+        env.storage().persistent().extend_ttl(
+            &DataKey::Batch(batch_id), PERSISTENT_TTL_THRESHOLD, PERSISTENT_TTL_EXTEND_TO,
+        );
+
+        // Mark scheduled batch as executed
+        scheduled.status = ScheduledBatchStatus::Executed;
+        env.storage().persistent().set(&key, &scheduled);
+        env.storage().persistent().extend_ttl(&key, PERSISTENT_TTL_THRESHOLD, PERSISTENT_TTL_EXTEND_TO);
+
+        ScheduledBatchExecutedEvent { scheduled_id, batch_id, total_sent: total }.publish(&env);
+        Ok(batch_id)
+    }
+
+    /// Cancels a pending scheduled batch and returns held funds to the original
+    /// sender. Only the original sender may cancel.
+    pub fn cancel_scheduled_batch(
+        env: Env,
+        sender: Address,
+        scheduled_id: u64,
+    ) -> Result<(), ContractError> {
+        sender.require_auth();
+
+        let key = DataKey::ScheduledBatch(scheduled_id);
+        let mut scheduled: ScheduledBatch = env.storage().persistent()
+            .get(&key)
+            .ok_or(ContractError::ScheduledBatchNotFound)?;
+
+        if scheduled.status != ScheduledBatchStatus::Pending {
+            return Err(ContractError::ScheduledBatchConsumed);
+        }
+        if scheduled.sender != sender {
+            return Err(ContractError::ScheduledBatchUnauthorized);
+        }
+
+        // Return held funds to sender
+        let mut total: i128 = 0;
+        for op in scheduled.payments.iter() {
+            total = total.checked_add(op.amount).ok_or(ContractError::AmountOverflow)?;
+        }
+        let token_client = token::Client::new(&env, &scheduled.token);
+        token_client.transfer(&env.current_contract_address(), &sender, &total);
+
+        scheduled.status = ScheduledBatchStatus::Cancelled;
+        env.storage().persistent().set(&key, &scheduled);
+        env.storage().persistent().extend_ttl(&key, PERSISTENT_TTL_THRESHOLD, PERSISTENT_TTL_EXTEND_TO);
+
+        ScheduledBatchCancelledEvent { scheduled_id, sender }.publish(&env);
+        Ok(())
+    }
+
+    /// Returns a scheduled batch record by ID.
+    pub fn get_scheduled_batch(
+        env: Env,
+        scheduled_id: u64,
+    ) -> Result<ScheduledBatch, ContractError> {
+        env.storage().persistent()
+            .get(&DataKey::ScheduledBatch(scheduled_id))
+            .ok_or(ContractError::ScheduledBatchNotFound)
     }
 
     /// Query the status and details of a single payment within a batch.
@@ -705,7 +950,7 @@ impl BulkPaymentContract {
         Self::record_usage(env, &sender, total);
 
         let batch_id = Self::next_batch_id(env);
-        env.storage().temporary().set(&DataKey::Batch(batch_id), &BatchRecord {
+        env.storage().persistent().set(&DataKey::Batch(batch_id), &BatchRecord {
             sender: sender.clone(),
             token:  token.clone(),
             total_sent:    total,
@@ -713,8 +958,8 @@ impl BulkPaymentContract {
             fail_count:    0,
             status:        symbol_short!("completed"),
         });
-        env.storage().temporary().extend_ttl(
-            &DataKey::Batch(batch_id), TEMPORARY_TTL_THRESHOLD, TEMPORARY_TTL_EXTEND_TO,
+        env.storage().persistent().extend_ttl(
+            &DataKey::Batch(batch_id), PERSISTENT_TTL_THRESHOLD, PERSISTENT_TTL_EXTEND_TO,
         );
 
         for (index, op) in payments.iter().enumerate() {
@@ -741,10 +986,14 @@ impl BulkPaymentContract {
 
     /// Partial-success path used by `execute_batch_v2(all_or_nothing = false)`.
     ///
-    /// Pulls only the sum of positive amounts into the contract. Valid payments
-    /// transfer immediately. Payments with `amount ≤ 0` are recorded as
-    /// `PaymentStatus::Failed` and their funds remain in the contract for
-    /// later retrieval via `refund_failed_payment`.
+    /// ### Logic Flow
+    /// 1. **Escrow Initialization**: Calculates the sum of all positive amounts and 
+    ///    transfers that total from `sender` to the contract address.
+    /// 2. **Execution Loop**: Iterates through payments:
+    ///    - If `amount > 0`: Transfers from contract to `recipient`, marks as `Sent`.
+    ///    - If `amount <= 0`: Marks as `Failed`. Proportional funds remain in contract.
+    /// 3. **Dust/Residual Handling**: Any remaining funds (due to calculation 
+    ///    discrepancies or explicit skips) are held for manual refund.
     fn execute_partial_with_refund(
         env: &Env,
         sender: Address,
@@ -844,7 +1093,7 @@ impl BulkPaymentContract {
                      else if success_count == 0 { symbol_short!("rollbck") }
                      else                       { symbol_short!("partial") };
 
-        env.storage().temporary().set(&DataKey::Batch(batch_id), &BatchRecord {
+        env.storage().persistent().set(&DataKey::Batch(batch_id), &BatchRecord {
             sender: sender.clone(),
             token:  token.clone(),
             total_sent,
@@ -852,8 +1101,8 @@ impl BulkPaymentContract {
             fail_count,
             status,
         });
-        env.storage().temporary().extend_ttl(
-            &DataKey::Batch(batch_id), TEMPORARY_TTL_THRESHOLD, TEMPORARY_TTL_EXTEND_TO,
+        env.storage().persistent().extend_ttl(
+            &DataKey::Batch(batch_id), PERSISTENT_TTL_THRESHOLD, PERSISTENT_TTL_EXTEND_TO,
         );
 
         env.events().publish(
